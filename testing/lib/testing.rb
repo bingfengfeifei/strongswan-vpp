@@ -113,10 +113,9 @@ module Dumm
       # Sets root to TESTING_ROOT and canonalizes it. Also sets the build
       # and guest dir based on the root.
       def set_directories!
-        require 'pathname'
         raise 'TESTING_ROOT is not set' unless defined?(::TESTING_ROOT)
         raise 'TESTING_ROOT is not a directory' unless File.directory?(::TESTING_ROOT)
-        @root = Pathname.new(::TESTING_ROOT).realpath.to_s
+        @root = File.expand_path(::TESTING_ROOT)
         ::TESTING_ROOT.replace @root
         @build_dir = File.join(@root, 'build')
         @guests_dir = File.join(@root, 'guests')

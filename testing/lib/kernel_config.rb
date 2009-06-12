@@ -25,9 +25,12 @@ module Dumm
       @name = name
       @needs_build = true
       @source = (config.source || "none").to_sym
+      config.path = File.expand_path(config.path) if config.path
+      config.config = File.expand_path(config.config) if config.config
       @config = config.config if File.file?(config.config || "")
       config.patches ||= []
-      @patches = config.patches.select { |p| File.exists?(p) && p =~ /\.patch(\.(bz2|gz))?$/ }
+      @patches = config.patches.map { |p| File.expand_path(p) }.select{ |p|
+                   File.exists?(p) && p =~ /\.patch(\.(bz2|gz))?$/ }
       case @source
       when :git, :dir
         unless File.directory?(config.path)

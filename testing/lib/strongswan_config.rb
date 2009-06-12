@@ -23,9 +23,10 @@ module Dumm
       @needs_build = true
       @options = config.options
       @source = (config.source || "none").to_sym
+      config.path = File.expand_path(config.path) if config.path
       case @source
       when :git, :dir
-        unless File.directory?(config.path)
+        unless config.path && File.directory?(config.path)
           raise "Path '#{config.path}' not found!"
         end
         @source_path = config.path
@@ -34,7 +35,7 @@ module Dumm
           @checkout = config.checkout if Testing.git_tree?(@source_path, config.checkout)
         end
       when :tar
-        raise "Tarball '#{config.path}' not found!" unless Testing.tarball?(config.path)
+        raise "Tarball '#{config.path}' not found!" unless config.path && Testing.tarball?(config.path)
         @source_path = config.path
       else
         raise "Specify the source type of strongSwan config '#{name}'"

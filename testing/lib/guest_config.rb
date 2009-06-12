@@ -45,9 +45,13 @@ module Dumm
         args << " con#{i.next}=#{con}"
       end
       # TODO if the masterfs is a tarball, extract that first
-      #Dir.chdir(Testing.root) do
-      #  Guest.new @name, @kernel.path || "/home/tbrunner/tbrunner/testing/umlbuild/linux-uml-2.6.21.1", @masterfs, args
-      #end
+      
+      # Creating the guests using Guest.new does not work because the union
+      # filesystem doesn't like us copying lots of files to the union directly
+      # when it's mounted. So we have to create the guests manually.
+      # Dir.chdir(Testing.root) do
+      #   Guest.new @name, @kernel.path, @masterfs, args
+      # end
       Dir.chdir(Testing.guests_dir) do
         Dir.mkdir(name, 0775)
         Dir.chdir(name) do
@@ -59,10 +63,15 @@ module Dumm
         end
       end
       @root = File.join(Testing.guests_dir, name, 'diff')
-      tmpl = File.join(@templates, name)
-      if File.directory?(tmpl)
-        FileUtils.cp_r(tmpl + '/.', @root) # '/.' is required to copy the contents of tmpl and not tmpl itself
+
+      if @templates
+        tmpl = File.join(@templates, name)
+        if File.directory?(tmpl)
+          # '/.' is required to copy the contents of tmpl and not tmpl itself
+          FileUtils.cp_r(tmpl + '/.', @root)
+        end
       end
+
       @needs_build = false
     end
 

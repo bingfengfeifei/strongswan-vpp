@@ -108,8 +108,10 @@ module Dumm
                  else
                    @kernels[c.kernel]
                  end
+      c.masterfs = File.expand_path(c.masterfs) if c.masterfs
       h.masterfs = c.masterfs if c.masterfs && (Testing.tarball?(c.masterfs) || File.directory?(c.masterfs))
-      h.templates = c.templates if c.templates && (c.templates.empty? || File.directory?(c.templates))
+      c.templates = File.expand_path(c.templates) if c.templates
+      h.templates = c.templates if c.templates && File.directory?(c.templates)
       h.mem = c.mem.to_i if c.mem
       h.consoles = c.consoles.select { |c| c =~ /^(xterm|pts)$/ } if c.consoles
       h.marshal_dump
