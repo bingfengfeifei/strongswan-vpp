@@ -1,4 +1,4 @@
-# Global configuration file for strongSwan UML testing.
+# Default configuration file for strongSwan UML testing.
 #
 # Copyright (C) 2009 Tobias Brunner
 # Hochschule fuer Technik Rapperswil
@@ -15,95 +15,119 @@
 
 # All tarballs must have on of the following extensions:
 #   .tar, .tar.gz, .tgz, .tar.bz2, .tbz
-
-<% testdir=TESTING_ROOT %>
+# Patches must have one of the following extensions:
+#   .patch, .patch.gz, .patch.bz2
+# All paths to files and directories can be given relative (to the testing
+# root) or absolute.
+#
+# ERB can be used to execute ruby code (<% %> or <%= %> syntax).
+#
+# The following sections and subsections can be defined.
+#
+# guests - defines the guests/hosts to be built
+# |-defaults - defines the default values for all hosts
+# | |-strongswan - the strongswan version to be used. this is either the name
+# | |              of a strongswan config as defined in separate section or an
+# | |              inline strongswan config (see below for the sections)
+# | |-kernel - the kernel to be used. either the name of a kernel config defined
+# | |          in a separate section or an inline kernel config
+# | |-master - the master file system to be used (folder or tarball)
+# | |-templates - default config files etc. that are copied to the guests root
+# | |             file system. a directory with the guest's name must exist in
+# | |             the directory specified here.
+# | |-mem - the memory in MB per guest
+# | |-console - a list of consoles to be connected for the guests (xterm|pts).
+# |             e.g.
+# |               consoles:
+# |                 - xterm
+# |                 - pts
+# |             would connect con1 with an xterm and a pts to con2
+# |-hosts - a list of hosts to be built. for each host the defaults set above
+#           can be customized.
+#           e.g.
+#             hosts:
+#               - sun
+#               - moon:
+#                   strongswan: older-version
+#               - dave:
+#                   mem: 128
+#           this would create the three guests sun, moon and dave where for moon
+#           a different strongswan version is installed and dave uses 128MB
+#           of memory instead of the default value.
+#
+# kernels - this defines kernel configurations that can be referenced above
+# |-NAME - the name of the kernel configuration, used to reference the config
+#   |- source - the type of source used to build the kernel. this is on of the
+#   |           following values:
+#   |             none - an already built kernel can be confgured directly
+#   |                    using the 'path' option
+#   |             dir - builds the kernel from the sources in the configured
+#   |                   directory (directly in that directory)
+#   |             git - build the kernel from the sources in the given (local)
+#   |                   git repository. using the 'treeish' option, a specific
+#   |                   tag, branch or even individual commit can be specified
+#   |                   that is then built.
+#   |             tar - build the kernel from the given tarball
+#   |           this option defaults to none
+#   |- path - the path to the kernel or the kernel sources
+#   |- treeish - this allows to specify a specific treeish (tag, branch etc.) in
+#   |            the git repository that is used to build the kernel. if it is
+#   |            set, a tarball is created from that treeish (using git archive)
+#   |            and that tarball is then used to build the kernel. if this
+#   |            option is omitted or empty, the build takes place directly in
+#   |            the unmodified repository (i.e. falls back to 'source: dir').
+#   |- patches - this is a list of kernel patches that are applied before
+#   |            compiling the sources.
+#   |- config - configuration file for the kernel. if it is not defined, the
+#               kernel config is assumed to be available in the source dir.
+#
+# strongswan - this is a list of strongswan configurations that can be
+# |            referenced above (very similar to the kernel configurations)
+# |- NAME - the name of the strongswan config, used to reference it
+#    |- source - this is the same as for the kernel configs above, except there
+#    |           is no 'none' option.
+#    |- path - same as for the kernel
+#    |- treeish - again, same as above
+#    |- options - a list of options for the configure script
+#                 e.g.
+#                   options:
+#                     eap_aka: yes # results in --enable-eap-aka
+#                     eap_md5: no  # results in --disable-eap-md5
+#
 
 guests:
   defaults:
-    # the strongswan version to be used. either the name of a strongswan config
-    # defined below or an inline strongswan config.
     strongswan: default
-#strongswan:
-#     source: git
-    # the kernel to be used. either the name of a kernel config defined below or
-    # an inline kernel config.
     kernel: default
-    # the masterfs to be used (folder or tarball)
-    #masterfs: <%= testdir %>/master-fs-20090325.tar.bz2
-    masterfs: <%= testdir %>/master
-    # templates (config files etc.) that are copied to the guests. a directory
-    # with the guest's name must exist in the directry set here.
-    templates: <%= testdir %>/hosts
-    # memory in MB per guest
+    masterfs: master
+    templates: hosts
     mem: 64
-    # consoles: xterm|pts
     consoles:
       - xterm
-      - pts
-  # allows to customize the values above for each host (options set here
-  # replace the defaults above for the specified host). Only the hosts listed
-  # here are actually built.
-  # possible values are: sun, moon, dave, carol, alice, venus bob and winnetou.
-  # of course, you can add other hostnames for your own scenarios.
   hosts:
-    - sun:
-        strongswan: other
-    - moon:
+    - sun
+    - moon
     - dave
-    - carol:
-#    kernel: older
-    - alice:
+    - carol
+    - alice
     - venus
-    - bob:
-        kernel: already_built
-        mem: 128
+    - bob
     - winnetou
 
-# list of kernels
 kernels:
   default:
-    # which source is used to build the kernel (none|dir|git|tar)
-    # where 'dir' is synonymous with 'git' but 'checkout' is ignored
-    # if this option is omitted, 'none' is assumed
     source: git
-    # if you set source to 'git', set the path to the git repository here
-    path: /home/tbrunner/kernel/net-next-2.6/
-    # if source is 'git', this is the local branch, tag or commit to build.
-    # a tarball is created from there (using git archive) and that tarball
-    # is then used to build the kernel.
-    # if this option is omitted or empty, the build takes place directly in
-    # the repository.
-    checkout: 'v2.6.28'
+    path: ~/kernel/linux-2.6/
+    treeish: 'v2.6.28'
     patches:
-      - /home/tbrunner/workspace/git/src/dumm/patches/mconsole-exec-2.6.28.patch
-    # kernel configuration file, if no config file is defined, it is assumed
-    # that the config file is available in the source directory
-    config: <%= testdir %>/.config-2.6.28
-  older:  
-    # tarball source
-    source: tar
-    path: <%= testdir %>/linux-2.6.29.4.tar.bz2
-    # list of optional kernel patches (.patch, .patch.bz2, .patch.gz extension)
-    patches:
-      #- <%= testdir %>/aead_init.patch.bz2
-    # kernel configuration file
-    config: <%= testdir %>/.config-2.6.29
-
-  already_built:
-    # if source is not defined or set to 'none' the kernel can be specified
-    # directly
-#source: none
-    path: /home/tbrunner/tbrunner/testing/umlbuild/linux-uml-2.6.21.1
+      - ../src/dumm/patches/mconsole-exec-2.6.28.patch
+    config: .config-2.6.28
 
 strongswan:
   default:
-    # same as for the kernel (dir|git|tar) 
     source: git
-    path: /home/tbrunner/workspace/git/
-    checkout: master
-    # list of configure options
-    # e.g. eap_aka: yes -> --enable-eap-aka
-    #   or eap_md5: no  -> --disable-eap-md5
+    path: ../
+    treeish: master
     options:
       - curl: no
       - ldap: no
@@ -126,10 +150,4 @@ strongswan:
       - integrity_test: yes
       - leak_detective: yes
       - load_tests: yes
-  other:
-    source: tar
-    path: <%= testdir %>/strongswan-4.3.1.tar.gz
-    options:
-      - gmp: no
-      - openssl: yes
 
