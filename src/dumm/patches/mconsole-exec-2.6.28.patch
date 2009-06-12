@@ -72,7 +72,7 @@
 +	}
 +	
 +	for (;;) {
-+		len = out->f_op->read(out, buf, sizeof(buf), 0);
++		len = out->f_op->read(out, buf, sizeof(buf), &out->f_pos);
 +		if (len < 0) {
 +			mconsole_reply(req, "reading output failed", 1, 0);
 +			break;
