@@ -39,7 +39,7 @@ module Dumm
         @source_path = config.path
         unless @source == :dir
           raise "'#{@source_path} is not a git repository!" unless Testing.git?(@source_path)
-          @checkout = config.checkout if Testing.git_tree?(@source_path, config.checkout)
+          @treeish = config.treeish if Testing.git_tree?(@source_path, config.treeish)
         end
       when :tar
         raise "Tarball '#{config.path}' not found!" unless Testing.tarball?(config.path)
@@ -57,8 +57,8 @@ module Dumm
       build_path = @source_path
       case @source
       when :git
-        if @checkout
-          tarball = Testing.archive_git(@source_path, @checkout, "kernel-#{@name}", Testing.build_dir)
+        if @treeish
+          tarball = Testing.archive_git(@source_path, @treeish, "kernel-#{@name}", Testing.build_dir)
           build_path = Testing.extract_tarball(tarball, Testing.build_dir)
         end
       when :tar
@@ -95,7 +95,8 @@ module Dumm
       end
     end
 
-    # Ensure that we have a kernel config.
+    # Ensure that we have a kernel config. Either set in the configuration
+    # or found in the given dir.
     def ensure_config(dir)
       config = File.join(dir, ".config")
       @config ||= config
@@ -106,7 +107,7 @@ module Dumm
     # Build the kernel and move it to the given location.
     def build_kernel(dir, kernel)
       Dir.chdir(dir) do
-        # TODO what about logging
+        # TODO what about logging and error handling
         `make clean ARCH=um 2>&1`
         # the next command might interact with the user. since '`' redirects
         # stdout we would have to use 'system'. currently we use 'yes' to

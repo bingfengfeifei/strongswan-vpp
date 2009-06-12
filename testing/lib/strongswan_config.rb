@@ -32,7 +32,7 @@ module Dumm
         @source_path = config.path
         unless @source == :dir
           raise "'#{@source_path} is not a git repository!" unless Testing.git?(@source_path)
-          @checkout = config.checkout if Testing.git_tree?(@source_path, config.checkout)
+          @treeish = config.treeish if Testing.git_tree?(@source_path, config.treeish)
         end
       when :tar
         raise "Tarball '#{config.path}' not found!" unless config.path && Testing.tarball?(config.path)
@@ -50,8 +50,8 @@ module Dumm
       @build_path = File.join(Testing.build_dir, "strongswan-#{name}")
       case @source
       when :git
-        if @checkout
-          tarball = Testing.archive_git(@source_path, @checkout, "strongswan-#{@name}", Testing.build_dir)
+        if @treeish
+          tarball = Testing.archive_git(@source_path, @treeish, "strongswan-#{@name}", Testing.build_dir)
           @source_path = @build_path = Testing.extract_tarball(tarball, Testing.build_dir)
         end
       when :tar
@@ -76,8 +76,8 @@ module Dumm
   private
 
     # Run the configure script located in directory 'sources' within the
-    # directory given as 'build'. autogen.sh is run if configure does not yet
-    # exist.
+    # directory given as 'build'. autogen.sh is run if configure does not
+    # yet exist.
     def configure(sources, build)
       script = File.join(sources, "configure")
       unless File.executable?(script)
