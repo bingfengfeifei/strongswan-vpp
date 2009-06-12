@@ -1,0 +1,135 @@
+# Global configuration file for strongSwan UML testing.
+#
+# Copyright (C) 2009 Tobias Brunner
+# Hochschule fuer Technik Rapperswil
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.  See <http://www.fsf.org/copyleft/gpl.txt>.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+
+# All tarballs must have on of the following extensions:
+#   .tar, .tar.gz, .tgz, .tar.bz2, .tbz
+
+<% testdir=TESTING_ROOT %>
+
+guests:
+  defaults:
+    # the strongswan version to be used. either the name of a strongswan config
+    # defined below or an inline strongswan config.
+    strongswan: default
+#strongswan:
+#     source: git
+    # the kernel to be used. either the name of a kernel config defined below or
+    # an inline kernel config.
+    kernel: default
+    # the masterfs to be used (folder or tarball)
+    #masterfs: <%= testdir %>/master-fs-20090325.tar.bz2
+    masterfs: <%= testdir %>/master
+    # templates (config files etc.) that are copied to the guests. a directory
+    # with the guest's name must exist in the directry set here.
+    templates: <%= testdir %>/hosts
+    # memory in MB per guest
+    mem: 64
+    # consoles: xterm|pts
+    consoles:
+      - xterm
+      - pts
+  # allows to customize the values above for each host (options set here
+  # replace the defaults above for the specified host). Only the hosts listed
+  # here are actually built.
+  # possible values are: sun, moon, dave, carol, alice, venus bob and winnetou.
+  # of course, you can add other hostnames for your own scenarios.
+  hosts:
+    - sun:
+        strongswan: other
+    - moon:
+    - dave
+    - carol:
+#    kernel: older
+    - alice:
+    - venus
+    - bob:
+        kernel: already_built
+        mem: 128
+    - winnetou
+
+# list of kernels
+kernels:
+  default:
+    # which source is used to build the kernel (none|dir|git|tar)
+    # where 'dir' is synonymous with 'git' but 'checkout' is ignored
+    # if this option is omitted, 'none' is assumed
+    source: git
+    # if you set source to 'git', set the path to the git repository here
+    path: /home/tbrunner/kernel/net-next-2.6/
+    # if source is 'git', this is the local branch, tag or commit to build.
+    # a tarball is created from there (using git archive) and that tarball
+    # is then used to build the kernel.
+    # if this option is omitted or empty, the build takes place directly in
+    # the repository.
+    checkout: 'v2.6.28'
+    patches:
+      - /home/tbrunner/workspace/git/src/dumm/patches/mconsole-exec-2.6.28.patch
+    # kernel configuration file, if no config file is defined, it is assumed
+    # that the config file is available in the source directory
+    config: <%= testdir %>/.config-2.6.28
+  older:  
+    # tarball source
+    source: tar
+    path: <%= testdir %>/linux-2.6.29.4.tar.bz2
+    # list of optional kernel patches (.patch, .patch.bz2, .patch.gz extension)
+    patches:
+      #- <%= testdir %>/aead_init.patch.bz2
+    # kernel configuration file
+    config: <%= testdir %>/.config-2.6.29
+
+  already_built:
+    # if source is not defined or set to 'none' the kernel can be specified
+    # directly
+#source: none
+    path: /home/tbrunner/tbrunner/testing/umlbuild/linux-uml-2.6.21.1
+
+strongswan:
+  default:
+    # same as for the kernel (dir|git|tar) 
+    source: git
+    path: /home/tbrunner/workspace/git/
+    checkout: master
+    # list of configure options
+    # e.g. eap_aka: yes -> --enable-eap-aka
+    #   or eap_md5: no  -> --disable-eap-md5
+    options:
+      - curl: no
+      - ldap: no
+      - eap_aka: yes
+      - eap_sim: yes
+      - eap_sim_file: yes
+      - eap_md5: yes
+      - eap_mschapv2: yes
+      - eap_identity: yes
+      - eap_radius: yes
+      - sql: no
+      - sqlite: no
+      - md4: yes # required by eap-mschapv2
+      - mediation: yes
+      - openssl: yes
+      - blowfish: yes
+      - twofish: yes
+      - serpent: yes
+      - kernel_pfkey: yes
+      - integrity_test: yes
+      - leak_detective: yes
+      - load_tests: yes
+  other:
+    source: tar
+    path: <%= testdir %>/strongswan-4.3.1.tar.gz
+    options:
+      - gmp: no
+      - openssl: yes
+
