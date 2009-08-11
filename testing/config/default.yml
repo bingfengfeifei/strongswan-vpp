@@ -34,7 +34,8 @@
 # | |-master - the master file system to be used (folder or tarball)
 # | |-templates - default config files etc. that are copied to the guests root
 # | |             file system. a directory with the guest's name must exist in
-# | |             the directory specified here.
+# | |             the directory specified here. the contents of a subdirectory
+# | |             named 'default' are copied to all guests.
 # | |-mem - the memory in MB per guest
 # | |-console - a list of consoles to be connected for the guests (xterm|pts).
 # |             e.g.

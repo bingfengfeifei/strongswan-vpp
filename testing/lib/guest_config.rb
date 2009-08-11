@@ -65,10 +65,12 @@ module Dumm
       @root = File.join(Testing.guests_dir, name, 'diff')
 
       if @templates
-        tmpl = File.join(@templates, name)
-        if File.directory?(tmpl)
-          # '/.' is required to copy the contents of tmpl and not tmpl itself
-          FileUtils.cp_r(tmpl + '/.', @root)
+        ['default', name].each do |dir|
+          tmpl = File.join(@templates, dir)
+          if File.directory?(tmpl)
+            # '/.' is required to copy the contents of tmpl and not tmpl itself
+            FileUtils.cp_r(tmpl + '/.', @root)
+          end
         end
       end
 
