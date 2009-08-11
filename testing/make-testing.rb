@@ -15,7 +15,6 @@
   for more details.
 =end
 
-#require 'dumm'
 require 'lib/testing'
 require 'fileutils'
 
