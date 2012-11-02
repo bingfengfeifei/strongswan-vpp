@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Tobias Brunner
+ * Copyright (C) 2011-2012 Tobias Brunner
  * Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -143,7 +143,20 @@ METHOD(diffie_hellman_t, set_other_public_value, void,
 			break;
 		}
 		default:
+		{
+			if (this->mech_derive == CKM_X9_42_DH_DERIVE)
+			{
+				CK_X9_42_DH1_DERIVE_PARAMS params = {
+					CKD_NULL,
+					0,
+					NULL,
+					value.len,
+					value.ptr,
+				};
+				value = chunk_from_thing(params);
+			}
 			break;
+		}
 	}
 	derive_secret(this, value);
 }
@@ -230,6 +243,26 @@ static bool generate_key_pair_modp(private_pkcs11_dh_t *this, size_t exp_len,
 	CK_ATTRIBUTE pri_attr[] = {
 		{ CKA_DERIVE, &ck_true, sizeof(ck_true) },
 		{ CKA_VALUE_BITS, &bits, sizeof(bits) },
+	};
+	return generate_key_pair(this, pub_attr, countof(pub_attr), pri_attr,
+							 countof(pri_attr), CKA_VALUE);
+}
+
+/**
+ * Generate X9.42 DH key pair.
+ */
+static bool generate_key_pair_x9_42(private_pkcs11_dh_t *this, chunk_t g,
+									chunk_t p, chunk_t q)
+{
+	CK_BBOOL ck_true = CK_TRUE;
+	CK_ATTRIBUTE pub_attr[] = {
+		{ CKA_DERIVE, &ck_true, sizeof(ck_true) },
+		{ CKA_PRIME, p.ptr, p.len },
+		{ CKA_BASE, g.ptr, g.len },
+		{ CKA_SUBPRIME, q.ptr, q.len },
+	};
+	CK_ATTRIBUTE pri_attr[] = {
+		{ CKA_DERIVE, &ck_true, sizeof(ck_true) },
 	};
 	return generate_key_pair(this, pub_attr, countof(pub_attr), pri_attr,
 							 countof(pri_attr), CKA_VALUE);
@@ -383,6 +416,26 @@ static pkcs11_dh_t *create_modp(diffie_hellman_group_t group, size_t exp_len,
 }
 
 /**
+ * Constructor for X9.42 DH
+ */
+static pkcs11_dh_t *create_x9_42(diffie_hellman_group_t group, chunk_t g,
+								 chunk_t p, chunk_t q)
+{
+	private_pkcs11_dh_t *this = create_generic(group, CKM_X9_42_DH_KEY_PAIR_GEN,
+											   CKM_X9_42_DH_DERIVE);
+
+	if (this)
+	{
+		if (generate_key_pair_x9_42(this, g, p, q))
+		{
+			return &this->public;
+		}
+		free(this);
+	}
+	return NULL;
+}
+
+/**
  * Lookup the EC params for the given group.
  */
 static chunk_t ecparams_lookup(diffie_hellman_group_t group)
@@ -435,6 +488,11 @@ pkcs11_dh_t *pkcs11_dh_create(diffie_hellman_group_t group,
 			diffie_hellman_params_t *params = diffie_hellman_get_params(group);
 			if (params)
 			{
+				if (params->subgroup.len)
+				{
+					return create_x9_42(group, params->generator, params->prime,
+										params->subgroup);
+				}
 				return create_modp(group, params->exp_len, params->generator,
 								   params->prime);
 			}
