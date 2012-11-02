@@ -2,6 +2,9 @@
    Copyright 2006, 2007 g10 Code GmbH
    Copyright 2006 Andreas Jellinghaus
 
+   Copyright (C) 2011-2012 Tobias Brunner
+   Hochschule fuer Technik Rapperswil
+
    This file is free software; as a special exception the author gives
    unlimited permission to copy and/or distribute it, with or without
    modifications, as long as this notice is preserved.
@@ -186,6 +189,12 @@ extern "C" {
 #define shared_data pSharedData
 #define public_data_len ulPublicDataLen
 #define public_data pPublicData
+
+#define ck_x9_42_dh_kdf_type_t CK_X9_42_DH_KDF_TYPE
+
+#define ck_x9_42_dh1_derive_args _CK_X9_42_DH1_DERIVE_PARAMS
+#define other_info_len ulOtherInfoLen
+#define other_info pOtherInfo
 
 #endif	/* CRYPTOKI_COMPAT */
 
@@ -1102,12 +1111,25 @@ typedef unsigned long ck_ec_kdf_type_t;
 
 #define CKD_NULL				(1)
 #define CKD_SHA1_DKF			(2)
+#define CKD_SHA1_KDF_ASN1		(3)
+#define CKD_SHA1_KDF_CONCATENATE	(4)
 
 struct ck_ecdh1_derive_params
 {
   ck_ec_kdf_type_t kdf;
   unsigned long shared_data_len;
   void *shared_data;
+  unsigned long public_data_len;
+  void *public_data;
+};
+
+typedef unsigned long ck_x9_42_dh_kdf_type_t;
+
+struct ck_x9_42_dh1_derive_params
+{
+  ck_x9_42_dh_kdf_type_t kdf;
+  unsigned long other_info_len;
+  void *other_info;
   unsigned long public_data_len;
   void *public_data;
 };
@@ -1284,6 +1306,9 @@ typedef struct ck_c_initialize_args *CK_C_INITIALIZE_ARGS_PTR;
 typedef struct ck_ecdh1_derive_params CK_ECDH1_DERIVE_PARAMS;
 typedef struct ck_ecdh1_derive_params *CK_ECDH1_DERIVE_PARAMS_PTR;
 
+typedef struct ck_x9_42_dh1_derive_params CK_X9_42_DH1_DERIVE_PARAMS;
+typedef struct ck_x9_42_dh1_derive_params *CK_X9_42_DH1_DERIVE_PARAMS_PTR;
+
 #define NULL_PTR NULL
 
 /* Delete the helper macros defined at the top of the file.  */
@@ -1365,6 +1390,20 @@ typedef struct ck_ecdh1_derive_params *CK_ECDH1_DERIVE_PARAMS_PTR;
 #undef lock_mutex
 #undef unlock_mutex
 #undef reserved
+
+#undef ck_ec_kdf_type_t
+
+#undef ck_ecdh1_derive_args
+#undef shared_data_len
+#undef shared_data
+#undef public_data_len
+#undef public_data
+
+#undef ck_x9_42_dh_kdf_type_t
+
+#undef ck_x9_42_dh1_derive_args
+#undef other_info_len
+#undef other_info
 
 #endif	/* CRYPTOKI_COMPAT */
 
