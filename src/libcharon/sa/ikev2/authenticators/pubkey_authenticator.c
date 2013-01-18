@@ -359,7 +359,7 @@ METHOD(authenticator_t, build, status_t,
 		DBG1(DBG_IKE, "no private key found for '%Y'", id);
 		return NOT_FOUND;
 	}
-
+	id = this->ike_sa->get_my_id(this->ike_sa);
 	if (this->ike_sa->supports_extension(this->ike_sa, EXT_SIGNATURE_AUTH))
 	{
 		auth_method = AUTH_DS;
@@ -434,13 +434,14 @@ METHOD(authenticator_t, process, status_t,
 				 auth_method, reason);
 			return INVALID_ARG;
 	}
-	id = get_cert_id(this->ike_sa, FALSE);
+	id = this->ike_sa->get_other_id(this->ike_sa);
 	keymat = (keymat_v2_t*)this->ike_sa->get_keymat(this->ike_sa);
 	if (!keymat->get_auth_octets(keymat, TRUE, this->ike_sa_init,
 								 this->nonce, id, this->reserved, &octets))
 	{
 		return FAILED;
 	}
+	id = get_cert_id(this->ike_sa, FALSE);
 	auth = this->ike_sa->get_auth_cfg(this->ike_sa, FALSE);
 	online = !this->ike_sa->has_condition(this->ike_sa,
 										  COND_ONLINE_VALIDATION_SUSPENDED);
