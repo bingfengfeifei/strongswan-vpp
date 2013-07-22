@@ -57,6 +57,11 @@ static cmd_connection_t *conn;
 static cmd_creds_t *creds;
 
 /**
+ * Hostname to connect to, in case options are read from a config file
+ */
+static char *hostname;
+
+/**
  * hook in library for debugging messages
  */
 extern void (*dbg) (debug_t group, level_t level, char *fmt, ...);
@@ -253,6 +258,57 @@ static void usage(FILE *out, char *msg, char *binary)
 }
 
 /**
+ * Handle a single command line/config option
+ */
+static bool handle_argument(int option, char *arg)
+{
+	bool handled = FALSE;
+
+	handled |= conn->handle(conn, option, arg);
+	handled |= creds->handle(creds, option, arg);
+
+	return handled;
+}
+
+/**
+ * Read options from a user-specific config file
+ */
+static void read_config()
+{
+	settings_t *config;
+	enumerator_t *enumerator;
+	char path[PATH_MAX], *key, *value;
+	int i;
+
+	if (snprintf(path, PATH_MAX, "%s/.charon-cmd", getenv("HOME")) >= PATH_MAX)
+	{
+		return;
+	}
+
+	config = settings_create(path);
+	enumerator = config->create_key_value_enumerator(config, hostname);
+	while (enumerator->enumerate(enumerator, &key, &value))
+	{
+		bool handled = FALSE;
+
+		for (i = 0; i < CMD_OPT_COUNT; i++)
+		{
+			if (streq(cmd_options[i].name, key))
+			{
+				handled = handle_argument(cmd_options[i].id, value);
+				break;
+			}
+		}
+		if (!handled)
+		{
+			DBG1(DBG_DMN, "invalid or unrecognized option '%s' in %s", key, path);
+		}
+	}
+	enumerator->destroy(enumerator);
+	config->destroy(config);
+}
+
+/**
  * Handle command line options, if simple is TRUE only arguments like --help
  * and --version are handled.
  */
@@ -271,8 +327,6 @@ static void handle_arguments(int argc, char *argv[], bool simple)
 	optind = 1;
 	while (TRUE)
 	{
-		bool handled = FALSE;
-
 		opt = getopt_long(argc, argv, "", long_opts, NULL);
 		switch (opt)
 		{
@@ -287,14 +341,19 @@ static void handle_arguments(int argc, char *argv[], bool simple)
 			case CMD_OPT_DEBUG:
 				default_loglevel = atoi(optarg);
 				continue;
+			case CMD_OPT_HOST:
+				if (simple)
+				{
+					hostname = optarg;
+					continue;
+				}
+				/* fall-through */
 			default:
 				if (simple)
 				{
 					continue;
 				}
-				handled |= conn->handle(conn, opt, optarg);
-				handled |= creds->handle(creds, opt, optarg);
-				if (handled)
+				if (handle_argument(opt, optarg))
 				{
 					continue;
 				}
@@ -370,6 +429,8 @@ int main(int argc, char *argv[])
 	creds = cmd_creds_create();
 	atexit(cleanup_creds);
 
+	/* handle config file */
+	read_config();
 	/* handle all arguments */
 	handle_arguments(argc, argv, FALSE);
 
