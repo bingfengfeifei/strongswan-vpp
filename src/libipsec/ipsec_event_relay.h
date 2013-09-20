@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2013 Tobias Brunner
  * Copyright (C) 2012 Giuliano Grassi
  * Copyright (C) 2012 Ralf Sager
  * HSR Hochschule fuer Technik Rapperswil
@@ -45,6 +46,16 @@ struct ipsec_event_relay_t {
 	 */
 	void (*expire)(ipsec_event_relay_t *this, uint8_t protocol, uint32_t spi,
 				   host_t *dst, bool hard);
+
+	/**
+	 * Raise an acquire event.
+	 *
+	 * @param reqid			reqid of the policy for which to acquire an SA
+	 * @param src_ts		source traffic selector (gets adopted)
+	 * @param dst_ts		destination traffic selector (gets adopted)
+	 */
+	void (*acquire)(ipsec_event_relay_t *this, uint32_t reqid,
+					traffic_selector_t *src_ts, traffic_selector_t *dst_ts);
 
 	/**
 	 * Register a listener to events raised by this manager
