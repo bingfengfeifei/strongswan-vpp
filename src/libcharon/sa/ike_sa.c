@@ -34,7 +34,9 @@
 #include <processing/jobs/send_keepalive_job.h>
 #include <processing/jobs/rekey_ike_sa_job.h>
 #include <processing/jobs/retry_initiate_job.h>
+#include <sa/ikev1/tasks/quick_mode.h>
 #include <sa/ikev2/tasks/ike_auth_lifetime.h>
+#include <sa/ikev2/tasks/child_create.h>
 
 #ifdef ME
 #include <sa/ikev2/tasks/ike_me.h>
@@ -1540,7 +1542,7 @@ METHOD(ike_sa_t, reauth, status_t,
 }
 
 /**
- * Check if tasks to create CHILD_SAs are queued in the given queue
+ * Check if tasks to recreate CHILD_SAs are queued in the given queue
  */
 static bool is_child_queued(private_ike_sa_t *this, task_queue_t queue)
 {
@@ -1552,11 +1554,23 @@ static bool is_child_queued(private_ike_sa_t *this, task_queue_t queue)
 															queue);
 	while (enumerator->enumerate(enumerator, &task))
 	{
-		if (task->get_type(task) == TASK_CHILD_CREATE ||
-			task->get_type(task) == TASK_QUICK_MODE)
+		if (task->get_type(task) == TASK_CHILD_CREATE)
 		{
-			found = TRUE;
-			break;
+			child_create_t *create = (child_create_t*)task;
+			if (create->is_recreating(create))
+			{
+				found = TRUE;
+				break;
+			}
+		}
+		if (task->get_type(task) == TASK_QUICK_MODE)
+		{
+			quick_mode_t *create = (quick_mode_t*)task;
+			if (create->is_recreating(create))
+			{
+				found = TRUE;
+				break;
+			}
 		}
 	}
 	enumerator->destroy(enumerator);
