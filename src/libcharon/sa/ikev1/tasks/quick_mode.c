@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Tobias Brunner
+ * Copyright (C) 2012-2013 Tobias Brunner
  * Hochschule fuer Technik Rapperswil
  *
  * Copyright (C) 2011 Martin Willi
@@ -174,6 +174,11 @@ struct private_quick_mode_t {
 	 * Use UDP encapsulation
 	 */
 	bool udp;
+
+	/**
+	 * TRUE if recreating a previously established CHILD_SA
+	 */
+	bool recreate;
 
 	/** states of quick mode */
 	enum {
@@ -1293,6 +1298,12 @@ METHOD(quick_mode_t, rekey, void,
 	this->rekey = spi;
 }
 
+METHOD(quick_mode_t, is_recreating, bool,
+	private_quick_mode_t *this)
+{
+	return this->recreate;
+}
+
 METHOD(task_t, migrate, void,
 	private_quick_mode_t *this, ike_sa_t *ike_sa)
 {
@@ -1340,7 +1351,8 @@ METHOD(task_t, destroy, void,
  * Described in header.
  */
 quick_mode_t *quick_mode_create(ike_sa_t *ike_sa, child_cfg_t *config,
-							traffic_selector_t *tsi, traffic_selector_t *tsr)
+								bool recreate, traffic_selector_t *tsi,
+								traffic_selector_t *tsr)
 {
 	private_quick_mode_t *this;
 
@@ -1353,6 +1365,7 @@ quick_mode_t *quick_mode_create(ike_sa_t *ike_sa, child_cfg_t *config,
 			},
 			.use_reqid = _use_reqid,
 			.rekey = _rekey,
+			.is_recreating = _is_recreating,
 		},
 		.ike_sa = ike_sa,
 		.initiator = config != NULL,
@@ -1362,6 +1375,7 @@ quick_mode_t *quick_mode_create(ike_sa_t *ike_sa, child_cfg_t *config,
 		.tsi = tsi ? tsi->clone(tsi) : NULL,
 		.tsr = tsr ? tsr->clone(tsr) : NULL,
 		.proto = PROTO_ESP,
+		.recreate = recreate,
 	);
 
 	if (config)

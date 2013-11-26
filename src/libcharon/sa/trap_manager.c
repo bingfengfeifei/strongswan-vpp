@@ -358,7 +358,8 @@ METHOD(trap_manager_t, acquire, void,
 			 * have a single TS that we can establish in a Quick Mode. */
 			src = dst = NULL;
 		}
-		if (ike_sa->initiate(ike_sa, child, reqid, src, dst) != DESTROY_ME)
+		if (ike_sa->initiate(ike_sa, child, reqid, FALSE,
+							 src, dst) != DESTROY_ME)
 		{
 			/* make sure the entry is still there */
 			this->lock->read_lock(this->lock);

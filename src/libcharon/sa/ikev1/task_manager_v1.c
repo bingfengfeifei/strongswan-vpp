@@ -1086,7 +1086,7 @@ static status_t process_request(private_task_manager_t *this,
 						 "unestablished IKE_SA, ignored");
 					return FAILED;
 				}
-				task = (task_t *)quick_mode_create(this->ike_sa, NULL,
+				task = (task_t *)quick_mode_create(this->ike_sa, NULL, FALSE,
 												   NULL, NULL);
 				this->passive_tasks->insert_last(this->passive_tasks, task);
 				break;
@@ -1715,7 +1715,7 @@ METHOD(task_manager_t, queue_ike_reauth, void,
 		enumerator->destroy(enumerator);
 	}
 
-	if (new->initiate(new, NULL, 0, NULL, NULL) != DESTROY_ME)
+	if (new->initiate(new, NULL, 0, FALSE, NULL, NULL) != DESTROY_ME)
 	{
 		charon->ike_sa_manager->checkin(charon->ike_sa_manager, new);
 		this->ike_sa->set_state(this->ike_sa, IKE_REKEYING);
@@ -1760,11 +1760,11 @@ METHOD(task_manager_t, queue_mobike, void,
 
 METHOD(task_manager_t, queue_child, void,
 	private_task_manager_t *this, child_cfg_t *cfg, u_int32_t reqid,
-	traffic_selector_t *tsi, traffic_selector_t *tsr)
+	bool recreate, traffic_selector_t *tsi, traffic_selector_t *tsr)
 {
 	quick_mode_t *task;
 
-	task = quick_mode_create(this->ike_sa, cfg, tsi, tsr);
+	task = quick_mode_create(this->ike_sa, cfg, recreate, tsi, tsr);
 	task->use_reqid(task, reqid);
 
 	queue_task(this, &task->task);
@@ -1859,7 +1859,7 @@ METHOD(task_manager_t, queue_child_rekey, void,
 		{
 			child_sa->set_state(child_sa, CHILD_REKEYING);
 			cfg = child_sa->get_config(child_sa);
-			task = quick_mode_create(this->ike_sa, cfg->get_ref(cfg),
+			task = quick_mode_create(this->ike_sa, cfg->get_ref(cfg), FALSE,
 				get_first_ts(child_sa, TRUE), get_first_ts(child_sa, FALSE));
 			task->use_reqid(task, child_sa->get_reqid(child_sa));
 			task->rekey(task, child_sa->get_spi(child_sa, TRUE));

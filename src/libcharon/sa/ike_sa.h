@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2012 Tobias Brunner
+ * Copyright (C) 2006-2013 Tobias Brunner
  * Copyright (C) 2006 Daniel Roethlisberger
  * Copyright (C) 2005-2009 Martin Willi
  * Copyright (C) 2005 Jan Hutter
@@ -706,7 +706,8 @@ struct ike_sa_t {
 	 * to the CHILD_SA.
 	 *
 	 * @param child_cfg		child config to create CHILD from
-	 * @param reqid			reqid to use for CHILD_SA, 0 assigne uniquely
+	 * @param reqid			reqid to use for CHILD_SA, 0 assign uniquely
+	 * @param recreate		TRUE if recreating a previously established CHILD_SA
 	 * @param tsi			source of triggering packet
 	 * @param tsr			destination of triggering packet.
 	 * @return
@@ -714,8 +715,8 @@ struct ike_sa_t {
 	 *						- DESTROY_ME if initialization failed
 	 */
 	status_t (*initiate) (ike_sa_t *this, child_cfg_t *child_cfg,
-						  u_int32_t reqid, traffic_selector_t *tsi,
-						  traffic_selector_t *tsr);
+						  u_int32_t reqid, bool recreate,
+						  traffic_selector_t *tsi, traffic_selector_t *tsr);
 
 	/**
 	 * Retry initiation of this IKE_SA after it got deferred previously.

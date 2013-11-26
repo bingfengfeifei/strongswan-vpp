@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Tobias Brunner
+ * Copyright (C) 2008-2013 Tobias Brunner
  * Copyright (C) 2005-2008 Martin Willi
  * Copyright (C) 2005 Jan Hutter
  * Hochschule fuer Technik Rapperswil
@@ -178,6 +178,11 @@ struct private_child_create_t {
 	 * whether we are retrying with another DH group
 	 */
 	bool retry;
+
+	/**
+	 * whether we are recreating a previously establishd CHILD_SA
+	 */
+	bool recreate;
 };
 
 /**
@@ -1498,6 +1503,12 @@ METHOD(child_create_t, get_lower_nonce, chunk_t,
 	}
 }
 
+METHOD(child_create_t, is_recreating, bool,
+	private_child_create_t *this)
+{
+	return this->recreate;
+}
+
 METHOD(task_t, get_type, task_type_t,
 	private_child_create_t *this)
 {
@@ -1575,7 +1586,7 @@ METHOD(task_t, destroy, void,
  * Described in header.
  */
 child_create_t *child_create_create(ike_sa_t *ike_sa,
-							child_cfg_t *config, bool rekey,
+							child_cfg_t *config, bool rekey, bool recreate,
 							traffic_selector_t *tsi, traffic_selector_t *tsr)
 {
 	private_child_create_t *this;
@@ -1586,6 +1597,7 @@ child_create_t *child_create_create(ike_sa_t *ike_sa,
 			.set_config = _set_config,
 			.get_lower_nonce = _get_lower_nonce,
 			.use_reqid = _use_reqid,
+			.is_recreating = _is_recreating,
 			.task = {
 				.get_type = _get_type,
 				.migrate = _migrate,
@@ -1604,6 +1616,7 @@ child_create_t *child_create_create(ike_sa_t *ike_sa,
 		.ipcomp_received = IPCOMP_NONE,
 		.rekey = rekey,
 		.retry = FALSE,
+		.recreate = recreate,
 	);
 
 	if (config)

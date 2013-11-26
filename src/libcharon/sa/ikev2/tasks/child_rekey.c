@@ -179,8 +179,9 @@ METHOD(task_t, build_i, status_t,
 	/* ... our CHILD_CREATE task does the hard work for us. */
 	if (!this->child_create)
 	{
-		this->child_create = child_create_create(this->ike_sa,
-									config->get_ref(config), TRUE, NULL, NULL);
+		config = config->get_ref(config);
+		this->child_create = child_create_create(this->ike_sa, config, TRUE,
+												 FALSE, NULL, NULL);
 	}
 	reqid = this->child_sa->get_reqid(this->child_sa);
 	this->child_create->use_reqid(this->child_create, reqid);
@@ -498,7 +499,8 @@ child_rekey_t *child_rekey_create(ike_sa_t *ike_sa, protocol_id_t protocol,
 		this->public.task.build = _build_r;
 		this->public.task.process = _process_r;
 		this->initiator = FALSE;
-		this->child_create = child_create_create(ike_sa, NULL, TRUE, NULL, NULL);
+		this->child_create = child_create_create(ike_sa, NULL, TRUE, FALSE,
+												 NULL, NULL);
 	}
 
 	return &this->public;

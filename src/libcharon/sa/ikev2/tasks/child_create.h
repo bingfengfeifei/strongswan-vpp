@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2013 Tobias Brunner
  * Copyright (C) 2007 Martin Willi
  * Hochschule fuer Technik Rapperswil
  *
@@ -71,6 +72,11 @@ struct child_create_t {
 	 * @param cfg		configuration to enforce, reference gets owned
 	 */
 	void (*set_config)(child_create_t *this, child_cfg_t *cfg);
+
+	/**
+	 * Whether this task recreates a previously established CHILD_SA.
+	 */
+	bool (*is_recreating)(child_create_t *this);
 };
 
 /**
@@ -79,12 +85,13 @@ struct child_create_t {
  * @param ike_sa		IKE_SA this task works for
  * @param config		child_cfg if task initiator, NULL if responder
  * @param rekey			whether we do a rekey or not
+ * @param recreate		whether we recreate a previous CHILD_SA
  * @param tsi			source of triggering packet, or NULL
  * @param tsr			destination of triggering packet, or NULL
  * @return				child_create task to handle by the task_manager
  */
 child_create_t *child_create_create(ike_sa_t *ike_sa,
-							child_cfg_t *config, bool rekey,
+							child_cfg_t *config, bool rekey, bool recreate,
 							traffic_selector_t *tsi, traffic_selector_t *tsr);
 
 #endif /** CHILD_CREATE_H_ @}*/

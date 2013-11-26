@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2013 Tobias Brunner
  * Copyright (C) 2006 Martin Willi
  * Hochschule fuer Technik Rapperswil
  *
@@ -157,11 +158,13 @@ struct task_manager_t {
 	 *
 	 * @param cfg			CHILD_SA config to establish
 	 * @param reqid			reqid to use for CHILD_SA
+	 * @param recreate		TRUE if recreating a previously established CHILD_SA
 	 * @param tsi			initiator traffic selector, if packet-triggered
 	 * @param tsr			responder traffic selector, if packet-triggered
 	 */
 	void (*queue_child)(task_manager_t *this, child_cfg_t *cfg, u_int32_t reqid,
-						traffic_selector_t *tsi, traffic_selector_t *tsr);
+						bool recreate, traffic_selector_t *tsi,
+						traffic_selector_t *tsr);
 
 	/**
 	 * Queue CHILD_SA rekeying tasks.

@@ -769,7 +769,7 @@ static status_t process_request(private_task_manager_t *this,
 				task = (task_t*)ike_config_create(this->ike_sa, FALSE);
 				array_insert(this->passive_tasks, ARRAY_TAIL, task);
 				task = (task_t*)child_create_create(this->ike_sa, NULL, FALSE,
-													NULL, NULL);
+													FALSE, NULL, NULL);
 				array_insert(this->passive_tasks, ARRAY_TAIL, task);
 				task = (task_t*)ike_auth_lifetime_create(this->ike_sa, FALSE);
 				array_insert(this->passive_tasks, ARRAY_TAIL, task);
@@ -818,7 +818,7 @@ static status_t process_request(private_task_manager_t *this,
 					else
 					{
 						task = (task_t*)child_create_create(this->ike_sa, NULL,
-															FALSE, NULL, NULL);
+													FALSE, FALSE, NULL, NULL);
 					}
 				}
 				else
@@ -1372,11 +1372,11 @@ METHOD(task_manager_t, queue_mobike, void,
 
 METHOD(task_manager_t, queue_child, void,
 	private_task_manager_t *this, child_cfg_t *cfg, u_int32_t reqid,
-	traffic_selector_t *tsi, traffic_selector_t *tsr)
+	bool recreate, traffic_selector_t *tsi, traffic_selector_t *tsr)
 {
 	child_create_t *task;
 
-	task = child_create_create(this->ike_sa, cfg, FALSE, tsi, tsr);
+	task = child_create_create(this->ike_sa, cfg, FALSE, recreate, tsi, tsr);
 	if (reqid)
 	{
 		task->use_reqid(task, reqid);

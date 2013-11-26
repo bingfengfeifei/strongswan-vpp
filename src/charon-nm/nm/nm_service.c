@@ -596,7 +596,7 @@ static gboolean connect_(NMVPNPlugin *plugin, NMConnection *connection,
 	 * Initiate
 	 */
 	child_cfg->get_ref(child_cfg);
-	if (ike_sa->initiate(ike_sa, child_cfg, 0, NULL, NULL) != SUCCESS)
+	if (ike_sa->initiate(ike_sa, child_cfg, 0, FALSE, NULL, NULL) != SUCCESS)
 	{
 		charon->bus->remove_listener(charon->bus, &priv->listener);
 		charon->ike_sa_manager->checkin_and_destroy(charon->ike_sa_manager, ike_sa);

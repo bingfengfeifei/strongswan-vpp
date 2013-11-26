@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2013 Tobias Brunner
+ * Hochschule fuer Technik Rapperswil
+ *
  * Copyright (C) 2011 Martin Willi
  * Copyright (C) 2011 revosec AG
  *
@@ -50,6 +53,11 @@ struct quick_mode_t {
 	 * @param spi			spi of SA to rekey
 	 */
 	void (*rekey)(quick_mode_t *this, u_int32_t spi);
+
+	/**
+	 * Whether this task recreates a previously established CHILD_SA.
+	 */
+	bool (*is_recreating)(quick_mode_t *this);
 };
 
 /**
@@ -57,11 +65,13 @@ struct quick_mode_t {
  *
  * @param ike_sa		IKE_SA this task works for
  * @param config		child_cfg if task initiator, NULL if responder
+ * @param recreate		TRUE if recreating a previously established CHILD_SA
  * @param tsi			source of triggering packet, or NULL
  * @param tsr			destination of triggering packet, or NULL
  * @return				task to handle by the task_manager
  */
 quick_mode_t *quick_mode_create(ike_sa_t *ike_sa, child_cfg_t *config,
-							traffic_selector_t *tsi, traffic_selector_t *tsr);
+								bool recreate, traffic_selector_t *tsi,
+								traffic_selector_t *tsr);
 
 #endif /** QUICK_MODE_H_ @}*/

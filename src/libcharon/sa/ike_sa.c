@@ -1152,7 +1152,7 @@ static void resolve_hosts(private_ike_sa_t *this)
 
 METHOD(ike_sa_t, initiate, status_t,
 	private_ike_sa_t *this, child_cfg_t *child_cfg, u_int32_t reqid,
-	traffic_selector_t *tsi, traffic_selector_t *tsr)
+	bool recreate, traffic_selector_t *tsi, traffic_selector_t *tsr)
 {
 	bool defer_initiate = FALSE;
 
@@ -1221,7 +1221,7 @@ METHOD(ike_sa_t, initiate, status_t,
 	{
 		/* normal IKE_SA with CHILD_SA */
 		this->task_manager->queue_child(this->task_manager, child_cfg, reqid,
-										tsi, tsr);
+										recreate, tsi, tsr);
 #ifdef ME
 		if (this->peer_cfg->get_mediated_by(this->peer_cfg))
 		{
@@ -1254,7 +1254,7 @@ METHOD(ike_sa_t, retry_initiate, status_t,
 	if (this->retry_initiate_queued)
 	{
 		this->retry_initiate_queued = FALSE;
-		return initiate(this, NULL, 0, NULL, NULL);
+		return initiate(this, NULL, 0, FALSE, NULL, NULL);
 	}
 	return SUCCESS;
 }
@@ -1676,7 +1676,7 @@ METHOD(ike_sa_t, reestablish, status_t,
 #ifdef ME
 	if (this->peer_cfg->is_mediation(this->peer_cfg))
 	{
-		status = new->initiate(new, NULL, 0, NULL, NULL);
+		status = new->initiate(new, NULL, 0, FALSE, NULL, NULL);
 	}
 	else
 #endif /* ME */
@@ -1722,7 +1722,8 @@ METHOD(ike_sa_t, reestablish, status_t,
 						 child_cfg->get_name(child_cfg));
 					child_cfg->get_ref(child_cfg);
 					status = new->initiate(new, child_cfg,
-									child_sa->get_reqid(child_sa), NULL, NULL);
+										   child_sa->get_reqid(child_sa), TRUE,
+										   NULL, NULL);
 					break;
 				default:
 					continue;
@@ -1740,7 +1741,7 @@ METHOD(ike_sa_t, reestablish, status_t,
 			other_tasks->adopt_child_tasks(other_tasks, this->task_manager);
 			if (new->get_state(new) == IKE_CREATED)
 			{
-				status = new->initiate(new, NULL, 0, NULL, NULL);
+				status = new->initiate(new, NULL, 0, FALSE, NULL, NULL);
 			}
 		}
 	}
