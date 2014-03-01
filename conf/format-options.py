@@ -218,6 +218,16 @@ class GroffTagReplacer(TagReplacer):
 			return '{0}.R{1} "{2}" "{3}" "{4}"\n'.format(nl, format, brack, text, punct)
 		return replacer
 
+class TextileTagReplacer(TagReplacer):
+	def _create_replacer(self):
+		def replacer(m):
+			format = '_' if m.group('tag') == '_' else '*'
+			punct = m.group('punct')
+			if not punct:
+				punct = ''
+			return '{0}{1}{2}{1}{3}'.format(m.group(1), format, m.group('text'), punct)
+		return replacer
+
 class ConfFormatter:
 	"""Formats options to a strongswan.conf snippet"""
 	def __init__(self):
@@ -306,10 +316,39 @@ class ManFormatter:
 			else:
 				self.__format_option(option)
 
+class TextileFormatter:
+	"""Formats a list of options into a textile table"""
+	def __init__(self):
+		self.__tags = TextileTagReplacer()
+
+	def __format_option(self, option):
+		"""Print a single option"""
+		if option.section and not len(option.desc):
+			return
+		desc = ' '.join(option.desc if len(option.desc) < 2 else option.desc[1:])
+		desc = self.__tags.replace(desc)
+		if option.section:
+			print '|\\3(level1). *{0} section*|'.format(option.fullname)
+			print '|\\3(level2). {0}|'.format(desc)
+		else:
+			default = option.default if option.default else ''
+			print '|{0}|{1}|{2}|'.format(option.fullname, default, desc)
+
+	def format(self, options):
+		"""Print a list of options"""
+		if not options:
+			return
+		for option in options:
+			if option.section:
+				self.__format_option(option)
+				self.format(option.options)
+			else:
+				self.__format_option(option)
+
 options = OptionParser(usage = "Usage: %prog [options] file1 file2\n\n"
 					   "If no filenames are provided the input is read from stdin.")
-options.add_option("-f", "--format", dest="format", type="choice", choices=["conf", "man"],
-				   help="output format: conf, man [default: %default]", default="conf")
+options.add_option("-f", "--format", dest="format", type="choice", choices=["conf", "man", "textile"],
+				   help="output format: conf, man, textile [default: %default]", default="conf")
 options.add_option("-r", "--root", dest="root", metavar="NAME",
 				   help="root section of which options are printed, "
 				   "if not found everything is printed")
@@ -339,5 +378,7 @@ if opts.format == "conf":
 	formatter = ConfFormatter()
 elif opts.format == "man":
 	formatter = ManFormatter()
+elif opts.format == "textile":
+	formatter = TextileFormatter()
 
 formatter.format(options)
