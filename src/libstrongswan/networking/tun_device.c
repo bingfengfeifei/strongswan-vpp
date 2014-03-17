@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Tobias Brunner
+ * Copyright (C) 2012-2014 Tobias Brunner
  * Copyright (C) 2012 Giuliano Grassi
  * Copyright (C) 2012 Ralf Sager
  * Hochschule fuer Technik Rapperswil
@@ -50,8 +50,16 @@ tun_device_t *tun_device_create(const char *name_tmpl)
 #elif defined(__linux__)
 #include <linux/types.h>
 #include <linux/if_tun.h>
+/* defined in linux/ipv6.h, but that header is incompatible with in[6].h */
+struct in6_ifreq {
+	struct in6_addr	ifr6_addr;
+	u_int32_t	ifr6_prefixlen;
+	int	ifr6_ifindex;
+};
 #else
 #include <net/if_tun.h>
+#include <net/if_var.h>
+#include <netinet/in_var.h>
 #endif
 
 #include "tun_device.h"
@@ -86,6 +94,11 @@ struct private_tun_device_t {
 	int sock;
 
 	/**
+	 * Socket used for ioctl() to set IPv6 interface addr, ...
+	 */
+	int sock_v6;
+
+	/**
 	 * The current MTU
 	 */
 	int mtu;
@@ -101,8 +114,11 @@ struct private_tun_device_t {
 	u_int8_t netmask;
 };
 
-METHOD(tun_device_t, set_address, bool,
-	private_tun_device_t *this, host_t *addr, u_int8_t netmask)
+/**
+ * Set an IPv4 address and netmask
+ */
+static bool set_address_v4(private_tun_device_t *this, host_t *addr,
+						   u_int8_t netmask)
 {
 	struct ifreq ifr;
 	host_t *mask;
@@ -142,6 +158,97 @@ METHOD(tun_device_t, set_address, bool,
 		DBG1(DBG_LIB, "failed to set netmask on %s: %s",
 			 this->if_name, strerror(errno));
 		return FALSE;
+	}
+	return TRUE;
+}
+
+static bool set_address_v6(private_tun_device_t *this, host_t *addr,
+						   u_int8_t netmask)
+{
+#ifdef __linux__
+	{
+		struct sockaddr_in6 *sin6;
+		struct in6_ifreq ifr6;
+		struct ifreq ifr;
+
+		memset(&ifr, 0, sizeof(ifr));
+		memset(&ifr6, 0, sizeof(ifr6));
+		strncpy(ifr.ifr_name, this->if_name, IFNAMSIZ);
+		if (ioctl(this->sock_v6, SIOCGIFINDEX, &ifr) < 0)
+		{
+			DBG1(DBG_LIB, "failed to determine index of %s: %s",
+				 this->if_name, strerror(errno));
+			return FALSE;
+		}
+		sin6 = (struct sockaddr_in6*)addr->get_sockaddr(addr);
+		memcpy(&ifr6.ifr6_addr, &sin6->sin6_addr, sizeof(struct in6_addr));
+		ifr6.ifr6_prefixlen = netmask;
+		ifr6.ifr6_ifindex = ifr.ifr_ifindex;
+		if (ioctl(this->sock_v6, SIOCSIFADDR, &ifr6) < 0)
+		{
+			DBG1(DBG_LIB, "failed to set address on %s: %s",
+				 this->if_name, strerror(errno));
+			return FALSE;
+		}
+	}
+#else
+	{
+		struct in6_aliasreq ifra = {
+			.ifra_lifetime = { 0, 0, 0xffffffff, 0xffffffff },
+		};
+		host_t *mask;
+
+		strncpy(ifra.ifra_name, this->if_name, IFNAMSIZ);
+		memcpy(&ifra.ifra_addr, addr->get_sockaddr(addr),
+			   *addr->get_sockaddr_len(addr));
+#ifdef __APPLE__
+		/* FIXME: not sure if this is required */
+		memcpy(&ifra.ifra_dstaddr, addr->get_sockaddr(addr),
+			   *addr->get_sockaddr_len(addr));
+#endif
+		mask = host_create_netmask(addr->get_family(addr), netmask);
+		if (!mask)
+		{
+			DBG1(DBG_LIB, "invalid netmask: %d", netmask);
+			return FALSE;
+		}
+		memcpy(&ifra.ifra_prefixmask, mask->get_sockaddr(mask),
+			   *mask->get_sockaddr_len(mask));
+		mask->destroy(mask);
+
+		/* SIOCSIFADDR_IN6 is deprecated and won't work, but we'd probably have
+		 * to delete the existing address first with SIOCDIFADDR_IN6 (we use
+		 * one TUN device per VIP on BSD though) */
+		if (ioctl(this->sock_v6, SIOCAIFADDR_IN6, &ifra) < 0)
+		{
+			DBG1(DBG_LIB, "failed to set address on %s: %s",
+				 this->if_name, strerror(errno));
+			return FALSE;
+		}
+	}
+#endif
+	return TRUE;
+}
+
+METHOD(tun_device_t, set_address, bool,
+	private_tun_device_t *this, host_t *addr, u_int8_t netmask)
+{
+	switch (addr->get_family(addr))
+	{
+		case AF_INET:
+			if (!set_address_v4(this, addr, netmask))
+			{
+				return FALSE;
+			}
+			break;
+		case AF_INET6:
+			if (!set_address_v6(this, addr, netmask))
+			{
+				return FALSE;
+			}
+			break;
+		default:
+			return FALSE;
 	}
 	this->address = addr->clone(addr);
 	this->netmask = netmask;
@@ -479,6 +586,13 @@ tun_device_t *tun_device_create(const char *name_tmpl)
 	if (this->sock < 0)
 	{
 		DBG1(DBG_LIB, "failed to open socket to configure TUN device");
+		destroy(this);
+		return NULL;
+	}
+	this->sock_v6 = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (this->sock_v6 < 0)
+	{
+		DBG1(DBG_LIB, "failed to open IPv6 socket to configure TUN device");
 		destroy(this);
 		return NULL;
 	}
