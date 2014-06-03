@@ -34,7 +34,7 @@ man_MANS = \
 	swanctl.conf.5
 
 BUILT_SOURCES = swanctl.conf swanctl.conf.5.main
-EXTRA_DIST = swanctl.opt swanctl.conf swanctl.conf.5.main
+EXTRA_DIST = swanctl.opt swanctl.conf swanctl.conf.5.main ipsec2swanctl.pl
 CLEANFILES = $(man_MANS)
 
 .opt.conf:
