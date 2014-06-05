@@ -15,6 +15,7 @@
 
 #include "cng_plugin.h"
 #include "cng_hasher.h"
+#include "cng_crypter.h"
 
 #include <library.h>
 
@@ -49,6 +50,12 @@ METHOD(plugin_t, get_features, int,
 			PLUGIN_PROVIDE(HASHER, HASH_SHA256),
 			PLUGIN_PROVIDE(HASHER, HASH_SHA384),
 			PLUGIN_PROVIDE(HASHER, HASH_SHA512),
+		PLUGIN_REGISTER(CRYPTER, cng_crypter_create),
+			PLUGIN_PROVIDE(CRYPTER, ENCR_AES_CBC, 16),
+			PLUGIN_PROVIDE(CRYPTER, ENCR_AES_CBC, 24),
+			PLUGIN_PROVIDE(CRYPTER, ENCR_AES_CBC, 32),
+			PLUGIN_PROVIDE(CRYPTER, ENCR_3DES, 24),
+			PLUGIN_PROVIDE(CRYPTER, ENCR_DES, 8),
 	};
 	*features = f;
 	return countof(f);
@@ -57,6 +64,7 @@ METHOD(plugin_t, get_features, int,
 METHOD(plugin_t, destroy, void,
 	private_cng_plugin_t *this)
 {
+	cng_crypter_deinit();
 	cng_hasher_deinit();
 	free(this);
 }
@@ -79,6 +87,7 @@ plugin_t *cng_plugin_create()
 	);
 
 	cng_hasher_init();
+	cng_crypter_init();
 
 	return &this->public.plugin;
 }
