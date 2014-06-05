@@ -126,6 +126,7 @@ ARG_ENABL_SET([af-alg],         [enable AF_ALG crypto interface to Linux Crypto 
 ARG_ENABL_SET([blowfish],       [enable Blowfish software implementation plugin.])
 ARG_ENABL_SET([ccm],            [enables the CCM AEAD wrapper crypto plugin.])
 ARG_DISBL_SET([cmac],           [disable CMAC crypto implementation plugin.])
+ARG_ENABL_SET([cng],            [enables the Windows Cryptography API: Next Generation plugin.])
 ARG_ENABL_SET([ctr],            [enables the Counter Mode wrapper crypto plugin.])
 ARG_DISBL_SET([des],            [disable DES/3DES software implementation plugin.])
 ARG_DISBL_SET([fips-prf],       [disable FIPS PRF software implementation plugin.])
@@ -1202,6 +1203,7 @@ ADD_PLUGIN([pem],                  [s charon scepclient pki scripts manager meds
 ADD_PLUGIN([padlock],              [s charon])
 ADD_PLUGIN([openssl],              [s charon scepclient pki scripts manager medsrv attest nm cmd aikgen])
 ADD_PLUGIN([gcrypt],               [s charon scepclient pki scripts manager medsrv attest nm cmd aikgen])
+ADD_PLUGIN([cng],                  [s charon pki scripts attest aikgen])
 ADD_PLUGIN([af-alg],               [s charon scepclient pki scripts medsrv attest nm cmd aikgen])
 ADD_PLUGIN([fips-prf],             [s charon nm cmd])
 ADD_PLUGIN([gmp],                  [s charon scepclient pki scripts manager medsrv attest nm cmd aikgen])
@@ -1350,6 +1352,7 @@ AM_CONDITIONAL(USE_SQLITE, test x$sqlite = xtrue)
 AM_CONDITIONAL(USE_PADLOCK, test x$padlock = xtrue)
 AM_CONDITIONAL(USE_OPENSSL, test x$openssl = xtrue)
 AM_CONDITIONAL(USE_GCRYPT, test x$gcrypt = xtrue)
+AM_CONDITIONAL(USE_CNG, test x$cng = xtrue)
 AM_CONDITIONAL(USE_AGENT, test x$agent = xtrue)
 AM_CONDITIONAL(USE_KEYCHAIN, test x$keychain = xtrue)
 AM_CONDITIONAL(USE_PKCS11, test x$pkcs11 = xtrue)
@@ -1588,6 +1591,7 @@ AC_CONFIG_FILES([
 	src/libstrongswan/plugins/padlock/Makefile
 	src/libstrongswan/plugins/openssl/Makefile
 	src/libstrongswan/plugins/gcrypt/Makefile
+	src/libstrongswan/plugins/cng/Makefile
 	src/libstrongswan/plugins/agent/Makefile
 	src/libstrongswan/plugins/keychain/Makefile
 	src/libstrongswan/plugins/pkcs11/Makefile

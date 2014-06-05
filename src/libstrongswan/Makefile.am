@@ -488,6 +488,13 @@ if MONOLITHIC
 endif
 endif
 
+if USE_CNG
+  SUBDIRS += plugins/cng
+if MONOLITHIC
+  libstrongswan_la_LIBADD += plugins/cng/libstrongswan-cng.la
+endif
+endif
+
 if USE_FIPS_PRF
   SUBDIRS += plugins/fips_prf
 if MONOLITHIC
