@@ -14,6 +14,7 @@
  */
 
 #include "cng_plugin.h"
+#include "cng_hasher.h"
 
 #include <library.h>
 
@@ -40,6 +41,14 @@ METHOD(plugin_t, get_features, int,
 	private_cng_plugin_t *this, plugin_feature_t *features[])
 {
 	static plugin_feature_t f[] = {
+		PLUGIN_REGISTER(HASHER, cng_hasher_create),
+			PLUGIN_PROVIDE(HASHER, HASH_MD2),
+			PLUGIN_PROVIDE(HASHER, HASH_MD4),
+			PLUGIN_PROVIDE(HASHER, HASH_MD5),
+			PLUGIN_PROVIDE(HASHER, HASH_SHA1),
+			PLUGIN_PROVIDE(HASHER, HASH_SHA256),
+			PLUGIN_PROVIDE(HASHER, HASH_SHA384),
+			PLUGIN_PROVIDE(HASHER, HASH_SHA512),
 	};
 	*features = f;
 	return countof(f);
@@ -48,6 +57,7 @@ METHOD(plugin_t, get_features, int,
 METHOD(plugin_t, destroy, void,
 	private_cng_plugin_t *this)
 {
+	cng_hasher_deinit();
 	free(this);
 }
 
@@ -67,6 +77,8 @@ plugin_t *cng_plugin_create()
 			},
 		},
 	);
+
+	cng_hasher_init();
 
 	return &this->public.plugin;
 }
