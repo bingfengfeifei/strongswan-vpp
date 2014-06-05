@@ -35,7 +35,8 @@ all)
 			--disable-lock-profiler --disable-maemo --disable-padlock
 			--disable-osx-attr --disable-tkm --disable-uci --disable-aikgen
 			--disable-svc --disable-dbghelp-backtraces --disable-socket-win
-			--disable-kernel-wfp --disable-kernel-iph --disable-winhttp"
+			--disable-kernel-wfp --disable-kernel-iph --disable-winhttp
+			--disable-cng"
 	if test "$LEAK_DETECTIVE" = "yes"; then
 		# libgcrypt can't be deinitialized
 		CONFIG="$CONFIG --disable-gcrypt"
