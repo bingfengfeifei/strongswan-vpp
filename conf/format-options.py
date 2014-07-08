@@ -318,21 +318,26 @@ class ManFormatter:
 
 class TextileFormatter:
 	"""Formats a list of options into a textile table"""
-	def __init__(self):
+	def __init__(self, alternative = False):
 		self.__tags = TextileTagReplacer()
+		self.__alternative = alternative
 
 	def __format_option(self, option):
 		"""Print a single option"""
 		if option.section and not len(option.desc):
 			return
-		desc = ' '.join(option.desc if len(option.desc) < 2 else option.desc[1:])
+		desc = '\n  '.join(option.desc if len(option.desc) < 2 else option.desc[1:])
 		desc = self.__tags.replace(desc)
 		if option.section:
-			print '|\\3(level1). *{0} section*|'.format(option.fullname)
-			print '|\\3(level2). {0}|'.format(desc)
+			colspan = 2 if self.__alternative else 3
+			print '|\\{0}(level1). *{1} section*|'.format(colspan, option.fullname)
+			print '|\\{0}(level2). {1}|'.format(colspan, desc)
 		else:
 			default = option.default if option.default else ''
-			print '|{0}|{1}|{2}|'.format(option.fullname, default, desc)
+			if self.__alternative:
+				print '|(level3). {0}|{1}|\n  |\\2((. {2}|'.format(option.fullname, default, desc)
+			else:
+				print '|{0}|{1}|{2}|'.format(option.fullname, default, desc)
 
 	def format(self, options):
 		"""Print a list of options"""
@@ -347,8 +352,8 @@ class TextileFormatter:
 
 options = OptionParser(usage = "Usage: %prog [options] file1 file2\n\n"
 					   "If no filenames are provided the input is read from stdin.")
-options.add_option("-f", "--format", dest="format", type="choice", choices=["conf", "man", "textile"],
-				   help="output format: conf, man, textile [default: %default]", default="conf")
+options.add_option("-f", "--format", dest="format", type="choice", choices=["conf", "man", "textile", "textile-alt"],
+				   help="output format: conf, man, textile, textile-alt [default: %default]", default="conf")
 options.add_option("-r", "--root", dest="root", metavar="NAME",
 				   help="root section of which options are printed, "
 				   "if not found everything is printed")
@@ -380,5 +385,7 @@ elif opts.format == "man":
 	formatter = ManFormatter()
 elif opts.format == "textile":
 	formatter = TextileFormatter()
+elif opts.format == "textile-alt":
+	formatter = TextileFormatter(alternative=True)
 
 formatter.format(options)
