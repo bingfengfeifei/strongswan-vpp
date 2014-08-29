@@ -211,6 +211,8 @@ typedef struct {
 	array_t *array;
 	/** current index +1, initialized at 0 */
 	int idx;
+	/** current element for element based arrays */
+	void *cur;
 } array_enumerator_t;
 
 METHOD(enumerator_t, enumerate, bool,
@@ -227,8 +229,11 @@ METHOD(enumerator_t, enumerate, bool,
 		  get_size(this->array, this->idx + this->array->head);
 	if (this->array->esize)
 	{
-		/* for element based arrays we return a pointer to the element */
-		*out = pos;
+		/* for element based arrays we copy the element and return a pointer to
+		 * the copy. this is required in case remove_at is called, which might
+		 * overwrite the current element */
+		memcpy(this->cur, pos, this->array->esize);
+		*out = this->cur;
 	}
 	else
 	{
@@ -237,6 +242,13 @@ METHOD(enumerator_t, enumerate, bool,
 	}
 	this->idx++;
 	return TRUE;
+}
+
+METHOD(enumerator_t, enumerator_destroy, void,
+	array_enumerator_t *this)
+{
+	free(this->cur);
+	free(this);
 }
 
 enumerator_t* array_create_enumerator(array_t *array)
@@ -251,10 +263,14 @@ enumerator_t* array_create_enumerator(array_t *array)
 	INIT(enumerator,
 		.public = {
 			.enumerate = (void*)_enumerate,
-			.destroy = (void*)free,
+			.destroy = _enumerator_destroy,
 		},
 		.array = array,
 	);
+	if (array->esize)
+	{
+		enumerator->cur = malloc(array->esize);
+	}
 	return &enumerator->public;
 }
 

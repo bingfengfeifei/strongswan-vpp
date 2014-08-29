@@ -277,6 +277,78 @@ START_TEST(test_enumerate)
 }
 END_TEST
 
+static int remove_at_data[] = {0, 1, 2, 3, 4};
+
+START_TEST(test_remove_at_obj)
+{
+	array_t *array;
+	int i, *x;
+	enumerator_t *enumerator;
+
+	array = array_create(sizeof(remove_at_data[0]), 0);
+
+	array_insert(array, ARRAY_TAIL, &remove_at_data[0]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[1]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[2]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[3]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[4]);
+
+	i = 0;
+	enumerator = array_create_enumerator(array);
+	while (enumerator->enumerate(enumerator, &x))
+	{
+		if (i >= _i)
+		{
+			ck_assert_int_eq(*x, remove_at_data[i]);
+			array_remove_at(array, enumerator);
+			ck_assert_int_eq(array_count(array),
+							 countof(remove_at_data) - i - 1 + _i);
+			ck_assert_int_eq(*x, remove_at_data[i]);
+		}
+		i++;
+	}
+	enumerator->destroy(enumerator);
+	ck_assert_int_eq(array_count(array), _i);
+
+	array_destroy(array);
+}
+END_TEST
+
+START_TEST(test_remove_at_ptr)
+{
+	array_t *array;
+	int i, *x;
+	enumerator_t *enumerator;
+
+	array = array_create(0, 0);
+
+	array_insert(array, ARRAY_TAIL, &remove_at_data[0]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[1]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[2]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[3]);
+	array_insert(array, ARRAY_TAIL, &remove_at_data[4]);
+
+	i = 0;
+	enumerator = array_create_enumerator(array);
+	while (enumerator->enumerate(enumerator, &x))
+	{
+		if (i >= _i)
+		{
+			ck_assert(x == &remove_at_data[i]);
+			array_remove_at(array, enumerator);
+			ck_assert_int_eq(array_count(array),
+							 countof(remove_at_data) - i - 1 + _i);
+			ck_assert(x == &remove_at_data[i]);
+		}
+		i++;
+	}
+	enumerator->destroy(enumerator);
+	ck_assert_int_eq(array_count(array), _i);
+
+	array_destroy(array);
+}
+END_TEST
+
 static int comp_obj(const void *a, const void *b, void *arg)
 {
 	ck_assert_str_eq(arg, "arg");
@@ -508,6 +580,11 @@ Suite *array_suite_create()
 
 	tc = tcase_create("enumerate");
 	tcase_add_test(tc, test_enumerate);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("remove_at");
+	tcase_add_loop_test(tc, test_remove_at_obj, 0, countof(remove_at_data));
+	tcase_add_loop_test(tc, test_remove_at_ptr, 0, countof(remove_at_data));
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("sort");
