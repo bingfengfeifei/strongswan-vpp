@@ -211,8 +211,10 @@ typedef struct {
 	array_t *array;
 	/** current index +1, initialized at 0 */
 	int idx;
-	/** current element for element based arrays */
-	void *cur;
+	/** pointer passed to enumerate for element based arrays */
+	void **out;
+	/** removed element for element based arrays */
+	void *removed;
 } array_enumerator_t;
 
 METHOD(enumerator_t, enumerate, bool,
@@ -229,11 +231,11 @@ METHOD(enumerator_t, enumerate, bool,
 		  get_size(this->array, this->idx + this->array->head);
 	if (this->array->esize)
 	{
-		/* for element based arrays we copy the element and return a pointer to
-		 * the copy. this is required in case remove_at is called, which might
-		 * overwrite the current element */
-		memcpy(this->cur, pos, this->array->esize);
-		*out = this->cur;
+		/* for element based arrays we return a pointer to the element, but we
+		 * remember the passed pointer so we can redirect it when remove_at()
+		 * is called later */
+		*out = pos;
+		this->out = out;
 	}
 	else
 	{
@@ -247,7 +249,7 @@ METHOD(enumerator_t, enumerate, bool,
 METHOD(enumerator_t, enumerator_destroy, void,
 	array_enumerator_t *this)
 {
-	free(this->cur);
+	free(this->removed);
 	free(this);
 }
 
@@ -267,10 +269,6 @@ enumerator_t* array_create_enumerator(array_t *array)
 		},
 		.array = array,
 	);
-	if (array->esize)
-	{
-		enumerator->cur = malloc(array->esize);
-	}
 	return &enumerator->public;
 }
 
@@ -278,9 +276,25 @@ void array_remove_at(array_t *array, enumerator_t *public)
 {
 	array_enumerator_t *enumerator = (array_enumerator_t*)public;
 
-	if (enumerator->idx)
+	if (enumerator->idx--)
 	{
-		array_remove(array, --enumerator->idx, NULL);
+		if (array->esize)
+		{
+			void *pos;
+
+			/* for element based arrays we copy the element and change the
+			 * pointer passed to enumerate. this is required if array_remove(),
+			 * overwrites the current element */
+			if (!enumerator->removed)
+			{
+				enumerator->removed = malloc(array->esize);
+			}
+			*enumerator->out = enumerator->removed;
+			pos = enumerator->array->data + get_size(enumerator->array,
+									enumerator->idx + enumerator->array->head);
+			memcpy(enumerator->removed, pos, enumerator->array->esize);
+		}
+		array_remove(array, enumerator->idx, NULL);
 	}
 }
 
