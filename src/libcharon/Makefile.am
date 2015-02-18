@@ -210,6 +210,13 @@ if MONOLITHIC
 endif
 endif
 
+if USE_CONNECT
+  SUBDIRS += plugins/connect
+if MONOLITHIC
+  libcharon_la_LIBADD += plugins/connect/libstrongswan-connect.la
+endif
+endif
+
 if USE_STROKE
   SUBDIRS += plugins/stroke
 if MONOLITHIC

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007-2014 Tobias Brunner
+# Copyright (C) 2007-2015 Tobias Brunner
 # Copyright (C) 2006-2014 Andreas Steffen
 # Copyright (C) 2006-2014 Martin Willi
 # Hochschule fuer Technik Rapperswil
@@ -212,6 +212,7 @@ ARG_DISBL_SET([socket-default], [disable default socket implementation for charo
 ARG_ENABL_SET([socket-dynamic], [enable dynamic socket implementation for charon])
 ARG_ENABL_SET([socket-win],     [enable Winsock2 based socket implementation for charon])
 # configuration/control plugins
+ARG_ENABL_SET([connect],        [simple plugin that allows to initiate/terminate existing connections.])
 ARG_DISBL_SET([stroke],         [disable charons stroke configuration backend.])
 ARG_ENABL_SET([smp],            [enable SMP configuration and control interface. Requires libxml.])
 ARG_ENABL_SET([sql],            [enable SQL database configuration backend.])
@@ -1270,6 +1271,7 @@ ADD_PLUGIN([socket-default],       [c charon nm cmd])
 ADD_PLUGIN([socket-dynamic],       [c charon cmd])
 ADD_PLUGIN([socket-win],           [c charon])
 ADD_PLUGIN([farp],                 [c charon])
+ADD_PLUGIN([connect],              [c charon])
 ADD_PLUGIN([stroke],               [c charon])
 ADD_PLUGIN([vici],                 [c charon])
 ADD_PLUGIN([smp],                  [c charon])
@@ -1404,6 +1406,7 @@ AM_CONDITIONAL(USE_BLISS, test x$bliss = xtrue)
 
 #  charon plugins
 # ----------------
+AM_CONDITIONAL(USE_CONNECT, test x$connect = xtrue)
 AM_CONDITIONAL(USE_STROKE, test x$stroke = xtrue)
 AM_CONDITIONAL(USE_VICI, test x$vici = xtrue)
 AM_CONDITIONAL(USE_MEDSRV, test x$medsrv = xtrue)
@@ -1743,6 +1746,7 @@ AC_CONFIG_FILES([
 	src/libcharon/plugins/android_dns/Makefile
 	src/libcharon/plugins/android_log/Makefile
 	src/libcharon/plugins/maemo/Makefile
+	src/libcharon/plugins/connect/Makefile
 	src/libcharon/plugins/stroke/Makefile
 	src/libcharon/plugins/vici/Makefile
 	src/libcharon/plugins/vici/ruby/Makefile
