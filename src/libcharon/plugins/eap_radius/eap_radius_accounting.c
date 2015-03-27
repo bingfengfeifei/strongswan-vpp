@@ -190,6 +190,13 @@ static void destroy_entry(entry_t *this)
 	free(this);
 }
 
+
+static void log_sa(sa_entry_t *sa)
+{
+	DBG1(DBG_CFG, "===  sa [%u]  b(i): %llu, b(o): %llu, p(i): %llu, p(o): %llu",
+		 sa->id, sa->usage.bytes.received, sa->usage.bytes.sent, sa->usage.packets.received, sa->usage.packets.sent);
+}
+
 /**
  * Accounting message status types
  */
@@ -347,6 +354,8 @@ static void cleanup_sas(private_eap_radius_accounting_t *this, ike_sa_t *ike_sa,
 		{
 			/* SA is gone, add its latest stats to the total for this IKE_SA
 			 * and remove the cache entry */
+			DBG1(DBG_CFG, "=== cached SA is gone in cleanup");
+			log_sa(sa);
 			add_usage(&entry->usage, sa->usage);
 			array_remove_at(entry->cached, enumerator);
 			free(sa);
@@ -744,9 +753,11 @@ static void send_stop(private_eap_radius_accounting_t *this, ike_sa_t *ike_sa)
 			destroy_entry(entry);
 			return;
 		}
+		DBG1(DBG_CFG, "=== report cached in stop");
 		enumerator = array_create_enumerator(entry->cached);
 		while (enumerator->enumerate(enumerator, &sa))
 		{
+			log_sa(sa);
 			add_usage(&entry->usage, sa->usage);
 		}
 		enumerator->destroy(enumerator);

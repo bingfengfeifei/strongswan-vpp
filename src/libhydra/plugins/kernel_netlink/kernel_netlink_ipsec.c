@@ -885,6 +885,11 @@ static void process_expire(private_kernel_netlink_ipsec_t *this,
 		dst = xfrm2host(expire->state.family, &expire->state.id.daddr, 0);
 		if (dst)
 		{
+			if (expire->hard)
+			{
+				DBG1(DBG_KNL, "=== received hard expire for CHILD_SA 0x%08x/%H, p: %llu, b: %llu",
+					 ntohl(spi), dst, expire->state.curlft.packets, expire->state.curlft.bytes);
+			}
 			hydra->kernel_interface->expire(hydra->kernel_interface, protocol,
 											spi, dst, expire->hard != 0);
 			dst->destroy(dst);
