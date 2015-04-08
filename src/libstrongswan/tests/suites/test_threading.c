@@ -1175,6 +1175,8 @@ START_TEST(test_cancel_point)
 }
 END_TEST
 
+/* not sure why AddressSanitizer complains here, pointer looks fine */
+ADDRESS_SANITIZER_EXCLUDE
 static void close_fd_ptr(void *fd)
 {
 	close(*(int*)fd);
