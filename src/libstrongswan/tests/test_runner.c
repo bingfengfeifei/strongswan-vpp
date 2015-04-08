@@ -53,7 +53,9 @@ static void destroy_suite(test_suite_t *suite)
 	{
 		array_destroy(tcase->functions);
 		array_destroy(tcase->fixtures);
+		free(tcase);
 	}
+	array_destroy(suite->tcases);
 	free(suite);
 }
 
