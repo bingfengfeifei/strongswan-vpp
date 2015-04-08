@@ -103,5 +103,9 @@ CONFIG="$CONFIG
 	--enable-monolithic=${MONOLITHIC-no}
 	--enable-leak-detective=${LEAK_DETECTIVE-no}"
 
+if test "$LEAK_DETECTIVE" != "yes"; then
+	CFLAGS="$CFLAGS -fsanitize=address"
+fi
+
 echo "$ CC="$CC" CFLAGS="$CFLAGS" ./configure $CONFIG && make $TARGET"
 CC="$CC" CFLAGS="$CFLAGS" ./configure $CONFIG && make -j4 $TARGET
