@@ -122,13 +122,16 @@ static bool read_uint16_internal(private_bio_reader_t *this, u_int16_t *res,
 static bool read_uint24_internal(private_bio_reader_t *this, u_int32_t *res,
 								 bool from_end)
 {
+	u_int32_t v = 0;
+
 	if (this->buf.len < 3)
 	{
 		DBG1(DBG_LIB, "%d bytes insufficient to parse u_int24 data",
 			 this->buf.len);
 		return FALSE;
 	}
-	*res = untoh32(get_ptr_end(this, 3, from_end)) >> 8;
+	memcpy(&v, get_ptr_end(this, 3, from_end), 3);
+	*res = ntohl(v) >> 8;
 	this->buf = chunk_skip_end(this->buf, 3, from_end);
 	return TRUE;
 }
