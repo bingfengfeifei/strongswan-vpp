@@ -75,6 +75,13 @@
 		BUILD_ASSERT(!__builtin_types_compatible_p(typeof(a), typeof(&(a)[0])))
 
 /**
+ * LLVM/Clang __has_feature support
+ */
+#ifndef __has_feature
+# define __has_feature(x) 0
+#endif
+
+/**
  * General purpose boolean type.
  */
 #ifdef HAVE_STDBOOL_H
