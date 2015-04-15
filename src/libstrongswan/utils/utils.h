@@ -82,6 +82,15 @@
 #endif
 
 /**
+ * Address santizer support
+ */
+#if __has_feature(address_sanitizer)
+# define ADDRESS_SANITIZER_EXCLUDE __attribute__((no_sanitize_address))
+#else
+# define ADDRESS_SANITIZER_EXCLUDE
+#endif
+
+/**
  * General purpose boolean type.
  */
 #ifdef HAVE_STDBOOL_H
