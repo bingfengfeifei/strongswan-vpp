@@ -133,7 +133,7 @@ static bool verify_eap(private_xauth_eap_t *this, eap_method_t *backend)
 	while (TRUE)
 	{
 		/* credential set is active in frontend only, but not in backend */
-		lib->credmgr->add_local_set(lib->credmgr, &this->cred->set, TRUE);
+		lib->credmgr->add_local_set(lib->credmgr, &this->cred->set, FALSE);
 		status = frontend->process(frontend, request, &response);
 		lib->credmgr->remove_local_set(lib->credmgr, &this->cred->set);
 		request->destroy(request);
