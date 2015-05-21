@@ -57,11 +57,6 @@ struct private_xauth_t {
 	xauth_method_t *xauth;
 
 	/**
-	 * XAuth username
-	 */
-	identification_t *user;
-
-	/**
 	 * Generated configuration payload
 	 */
 	cp_payload_t *cp;
@@ -87,7 +82,7 @@ struct private_xauth_t {
  */
 static xauth_method_t *load_method(private_xauth_t* this)
 {
-	identification_t *server, *peer;
+	identification_t *server, *peer, *identity;
 	enumerator_t *enumerator;
 	xauth_method_t *xauth;
 	xauth_role_t role;
@@ -121,12 +116,18 @@ static xauth_method_t *load_method(private_xauth_t* this)
 		}
 	}
 	name = auth->get(auth, AUTH_RULE_XAUTH_BACKEND);
-	this->user = auth->get(auth, AUTH_RULE_XAUTH_IDENTITY);
-	enumerator->destroy(enumerator);
-	if (!this->initiator && this->user)
+	identity = auth->get(auth, AUTH_RULE_XAUTH_IDENTITY);
+	if (!this->initiator && identity)
 	{	/* use XAUTH username, if configured */
-		peer = this->user;
+		peer = identity;
 	}
+	identity = auth->get(auth, AUTH_RULE_AAA_IDENTITY);
+	if (this->initiator && identity && identity->get_type(identity) != ID_ANY)
+	{
+		server = identity;
+	}
+	enumerator->destroy(enumerator);
+
 	xauth = charon->xauth->create_instance(charon->xauth, name, role,
 										   server, peer);
 	if (!xauth)
@@ -508,7 +509,6 @@ METHOD(task_t, migrate, void,
 	this->ike_sa = ike_sa;
 	this->xauth = NULL;
 	this->cp = NULL;
-	this->user = NULL;
 	this->status = XAUTH_FAILED;
 
 	if (this->initiator)
