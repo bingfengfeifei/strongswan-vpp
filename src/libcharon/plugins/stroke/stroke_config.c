@@ -631,6 +631,11 @@ static auth_cfg_t *build_auth_cfg(private_stroke_config_t *this,
 			cfg->add(cfg, AUTH_RULE_XAUTH_IDENTITY,
 				identification_create_from_string(msg->add_conn.xauth_identity));
 		}
+		if (msg->add_conn.aaa_identity)
+		{
+			cfg->add(cfg, AUTH_RULE_AAA_IDENTITY,
+				identification_create_from_string(msg->add_conn.aaa_identity));
+		}
 	}
 	else if (strpfx(auth, "eap"))
 	{
