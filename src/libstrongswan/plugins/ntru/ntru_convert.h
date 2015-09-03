@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Andreas Steffen
+ * Copyright (C) 2014-2015 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * Copyright (C) 2009-2013  Security Innovation
@@ -24,6 +24,11 @@
 #define NTRU_CONVERT_H_
 
 #include <library.h>
+
+/**
+ * Define small modulus p = 3 used for trits
+ */
+#define p   3
 
 /**
  * Each 3 bits in an array of octets is converted to 2 trits in an array

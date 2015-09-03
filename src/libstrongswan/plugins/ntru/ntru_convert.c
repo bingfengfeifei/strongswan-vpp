@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Andreas Steffen
+ * Copyright (C) 2014-2015 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * Copyright (C) 2009-2013  Security Innovation
@@ -269,8 +269,8 @@ void ntru_octet_2_trits(uint8_t octet, uint8_t *trits)
 
 	for (i = 0; i < 5; i++)
 	{
-		trits[i] = octet % 3;
-		octet = (octet - trits[i]) / 3;
+		trits[i] = octet % p;
+		octet = (octet - trits[i]) / p;
 	}
 }
 

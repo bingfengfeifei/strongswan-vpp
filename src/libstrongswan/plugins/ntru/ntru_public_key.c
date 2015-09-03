@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Andreas Steffen
+ * Copyright (C) 2014-2015 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * Copyright (C) 2009-2013  Security Innovation
@@ -233,9 +233,9 @@ METHOD(ntru_public_key_t, encrypt, bool,
 			for (i = 0; i < mprime_len; i++)
 			{
 				t2[i] = mask_trits[i] + Mtrin[i];
-				if (t2[i] >= 3)
+				if (t2[i] >= p)
 				{
-					t2[i] -= 3;
+					t2[i] -= p;
 				}
 				if (t2[i] == 1)
 				{
@@ -252,9 +252,9 @@ METHOD(ntru_public_key_t, encrypt, bool,
 			for (i = 0; i < mprime_len; i++)
 			{
 				t2[i] = mask_trits[i] + Mtrin[i];
-				if (t2[i] >= 3)
+				if (t2[i] >= p)
 				{
-					t2[i] -= 3;
+					t2[i] -= p;
 				}
 			}
 		}

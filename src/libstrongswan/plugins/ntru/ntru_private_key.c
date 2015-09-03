@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Andreas Steffen
+ * Copyright (C) 2014-2015 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * Copyright (C) 2009-2013  Security Innovation
@@ -212,7 +212,7 @@ METHOD(ntru_private_key_t, decrypt, bool,
 
 	/* set constants */
 	mod_q_mask = this->params->q - 1;
-	q_mod_p = this->params->q % 3;
+	q_mod_p = this->params->q % p;
 
     /* unpack the ciphertext */
     ntru_octets_2_elements(ciphertext.len, ciphertext.ptr,
@@ -232,12 +232,12 @@ METHOD(ntru_private_key_t, decrypt, bool,
 		--cmprime_len;
 		for (i = 0; i < cmprime_len; i++)
 		{
-			t1[i] = (t2[i] + 3 * t1[i]) & mod_q_mask;
+			t1[i] = (t2[i] + p * t1[i]) & mod_q_mask;
 			if (t1[i] >= (this->params->q / 2))
 			{
 				t1[i] -= q_mod_p;
 			}
-			Mtrin[i] = (uint8_t)(t1[i] % 3);
+			Mtrin[i] = (uint8_t)(t1[i] % p);
 			if (Mtrin[i] == 1)
 			{
 				++m1;
@@ -252,12 +252,12 @@ METHOD(ntru_private_key_t, decrypt, bool,
 	{
 		for (i = 0; i < cmprime_len; i++)
 		{
-			t1[i] = (t2[i] + 3 * t1[i]) & mod_q_mask;
+			t1[i] = (t2[i] + p * t1[i]) & mod_q_mask;
 			if (t1[i] >= (this->params->q / 2))
 			{
 				t1[i] -= q_mod_p;
 			}
-			Mtrin[i] = (uint8_t)(t1[i] % 3);
+			Mtrin[i] = (uint8_t)(t1[i] % p);
 		}
 	}
 
@@ -321,9 +321,9 @@ METHOD(ntru_private_key_t, decrypt, bool,
 	for (i = 0; i < cmprime_len; i++)
 	{
 		Mtrin[i] -=  mask_trits[i];
-		if (Mtrin[i] >= 3)
+		if (Mtrin[i] >= p)
 		{
-			Mtrin[i] += 3;
+			Mtrin[i] += p;
 		}
 	}
 	mask->destroy(mask);
@@ -708,7 +708,7 @@ ntru_private_key_t *ntru_private_key_create(ntru_drbg_t *drbg,
 	/* form f = 1 + pF */
 	for (i = 0; i < params->N; i++)
 	{
-		t1[i] = (t1[i] * 3) & mod_q_mask;
+		t1[i] = (p * t1[i]) & mod_q_mask;
 	}
 	t1[0] = (t1[0] + 1) & mod_q_mask;
 
@@ -743,7 +743,7 @@ ntru_private_key_t *ntru_private_key_create(ntru_drbg_t *drbg,
 
 	for (i = 0; i < params->N; i++)
 	{
-		this->pubkey[i] = (t2[i] * 3) & mod_q_mask;
+		this->pubkey[i] = (p * t2[i]) & mod_q_mask;
 	}
 
 	/* cleanup temporary storage */
