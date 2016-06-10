@@ -40,7 +40,12 @@ libvici_la_SOURCES = \
 	vici_message.c vici_message.h \
 	vici_builder.c vici_builder.h \
 	vici_cert_info.h vici_cert_info.c \
-	libvici.c libvici.h
+	libvici.c
+
+if USE_DEV_HEADERS
+vici_includedir = ${dev_headers}
+nobase_vici_include_HEADERS = libvici.h
+endif
 
 libvici_la_LIBADD = $(top_builddir)/src/libstrongswan/libstrongswan.la
 
