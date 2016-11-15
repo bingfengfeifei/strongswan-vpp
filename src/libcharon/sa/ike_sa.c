@@ -2539,6 +2539,11 @@ METHOD(ike_sa_t, roam, status_t,
 			break;
 	}
 
+	if (this->peer_cfg->no_roaming(this->peer_cfg))
+	{	/* disabled by config */
+		return SUCCESS;
+	}
+
 	/* ignore roam events if MOBIKE is not supported/enabled and the local
 	 * address is statically configured */
 	if (this->version == IKEV2 && !supports_extension(this, EXT_MOBIKE) &&
