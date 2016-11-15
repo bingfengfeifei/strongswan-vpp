@@ -295,6 +295,7 @@ typedef struct {
 	bool aggressive;
 	bool encap;
 	bool mobike;
+	bool roaming;
 	bool send_certreq;
 	bool pull;
 	cert_policy_t send_cert;
@@ -397,6 +398,7 @@ static void log_peer_data(peer_data_t *data)
 	DBG2(DBG_CFG, "  send_certreq = %u", data->send_certreq);
 	DBG2(DBG_CFG, "  send_cert = %N", cert_policy_names, data->send_cert);
 	DBG2(DBG_CFG, "  mobike = %u", data->mobike);
+	DBG2(DBG_CFG, "  roaming = %u", data->roaming);
 	DBG2(DBG_CFG, "  aggressive = %u", data->aggressive);
 	DBG2(DBG_CFG, "  dscp = 0x%.2x", data->dscp);
 	DBG2(DBG_CFG, "  encap = %u", data->encap);
@@ -1553,6 +1555,7 @@ CALLBACK(peer_kv, bool,
 		{ "dscp",			parse_dscp,			&peer->dscp					},
 		{ "encap",			parse_bool,			&peer->encap				},
 		{ "mobike",			parse_bool,			&peer->mobike				},
+		{ "roaming",		parse_bool,			&peer->roaming				},
 		{ "dpd_delay",		parse_time,			&peer->dpd_delay			},
 		{ "dpd_timeout",	parse_time,			&peer->dpd_timeout			},
 		{ "fragmentation",	parse_frag,			&peer->fragmentation		},
@@ -2195,6 +2198,7 @@ CALLBACK(config_sn, bool,
 		.children = linked_list_create(),
 		.proposals = linked_list_create(),
 		.mobike = TRUE,
+		.roaming = TRUE,
 		.send_certreq = TRUE,
 		.pull = TRUE,
 		.send_cert = CERT_SEND_IF_ASKED,
@@ -2352,6 +2356,7 @@ CALLBACK(config_sn, bool,
 		.jitter_time = peer.rand_time,
 		.over_time = peer.over_time,
 		.no_mobike = !peer.mobike,
+		.no_roaming = !peer.roaming,
 		.aggressive = peer.aggressive,
 		.push_mode = !peer.pull,
 		.dpd = peer.dpd_delay,

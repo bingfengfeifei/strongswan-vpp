@@ -120,6 +120,16 @@ connections.<conn>.encap = no
 	Usually this is not required, but it can help to work around connectivity
 	issues with too restrictive intermediary firewalls.
 
+connections.<conn>.roaming = yes
+	Enable active roaming between IP addresses/interfaces.
+
+	Enable active roaming between IP addresses/interfaces. Disabling this causes
+	this connection to ignore any local changes in interfaces, IP addresses or
+	routes and therefore prevents the active switching to different source
+	addresses. However, if valid packets are received on a different IP address
+	there might still be a switch. Disabling this implicitly disables MOBIKE on
+	IKEv2 connections.
+
 connections.<conn>.mobike = yes
 	Enables MOBIKE on IKEv2 connections.
 
