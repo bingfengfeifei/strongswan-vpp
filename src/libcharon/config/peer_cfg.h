@@ -249,6 +249,13 @@ struct peer_cfg_t {
 	uint32_t (*get_over_time)(peer_cfg_t *this);
 
 	/**
+	 * Prevent roaming to different IP addressess and interfaces.
+	 *
+	 * @return			TRUE to prevent roaming
+	 */
+	bool (*no_roaming) (peer_cfg_t *this);
+
+	/**
 	 * Use MOBIKE (RFC4555) if peer supports it?
 	 *
 	 * @return			TRUE to enable MOBIKE support
@@ -387,6 +394,8 @@ struct peer_cfg_create_t {
 	uint32_t over_time;
 	/** Disable MOBIKE (RFC4555) */
 	bool no_mobike;
+	/** Prevent roaming to different IP addresses/interfaces (disables MOBIKE) */
+	bool no_roaming;
 	/** Use/accept aggressive mode with IKEv1 */
 	bool aggressive;
 	/** TRUE to use modeconfig push, FALSE for pull */

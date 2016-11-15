@@ -96,6 +96,11 @@ struct private_peer_cfg_t {
 	bool use_mobike;
 
 	/**
+	 * Prevent roaming to different addresses/interfaces
+	 */
+	bool no_roaming;
+
+	/**
 	 * Use aggressive mode?
 	 */
 	bool aggressive;
@@ -502,6 +507,12 @@ METHOD(peer_cfg_t, use_mobike, bool,
 	return this->use_mobike;
 }
 
+METHOD(peer_cfg_t, no_roaming, bool,
+	private_peer_cfg_t *this)
+{
+	return this->no_roaming;
+}
+
 METHOD(peer_cfg_t, use_aggressive, bool,
 	private_peer_cfg_t *this)
 {
@@ -673,6 +684,7 @@ METHOD(peer_cfg_t, equals, bool,
 		this->unique == other->unique &&
 		this->keyingtries == other->keyingtries &&
 		this->use_mobike == other->use_mobike &&
+		this->no_roaming == other->no_roaming &&
 		this->rekey_time == other->rekey_time &&
 		this->reauth_time == other->reauth_time &&
 		this->jitter_time == other->jitter_time &&
@@ -760,6 +772,7 @@ peer_cfg_t *peer_cfg_create(char *name, ike_cfg_t *ike_cfg,
 			.get_reauth_time = _get_reauth_time,
 			.get_over_time = _get_over_time,
 			.use_mobike = _use_mobike,
+			.no_roaming = _no_roaming,
 			.use_aggressive = _use_aggressive,
 			.use_pull_mode = _use_pull_mode,
 			.get_dpd = _get_dpd,
@@ -790,7 +803,8 @@ peer_cfg_t *peer_cfg_create(char *name, ike_cfg_t *ike_cfg,
 		.reauth_time = data->reauth_time,
 		.jitter_time = data->jitter_time,
 		.over_time = data->over_time,
-		.use_mobike = !data->no_mobike,
+		.use_mobike = !data->no_mobike && !data->no_roaming,
+		.no_roaming = data->no_roaming,
 		.aggressive = data->aggressive,
 		.pull_mode = !data->push_mode,
 		.dpd = data->dpd,
