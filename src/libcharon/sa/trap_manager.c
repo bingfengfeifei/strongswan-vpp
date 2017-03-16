@@ -92,6 +92,21 @@ struct private_trap_manager_t {
 	 * Whether to ignore traffic selectors from acquires
 	 */
 	bool ignore_acquire_ts;
+
+	/**
+	 * Maximum number of acquires allowed within acq_ignore_burst_ms
+	 */
+	u_int acq_ignore_burst_count;
+
+	/**
+	 * Time period in which acq_ignore_burst_count acquires are allowed
+	 */
+	u_int acq_ignore_burst_ms;
+
+	/**
+	 * Time period in which acq_ignore_burst_count acquires are allowed
+	 */
+	timeval_t acq_ignore_burst_tv;
 };
 
 /**
@@ -118,6 +133,8 @@ typedef struct {
 	uint32_t reqid;
 	/** destination address (wildcard case) */
 	host_t *dst;
+	/** time we received this acquire */
+	timeval_t received;
 } acquire_t;
 
 /**
@@ -389,6 +406,38 @@ METHOD(trap_manager_t, find_reqid, uint32_t,
 	return reqid;
 }
 
+/**
+ * Check if we reached the burst limit
+ */
+static bool burst_detected(private_trap_manager_t *this)
+{
+	enumerator_t *enumerator;
+	acquire_t *acquire;
+	timeval_t now, limit;
+	u_int count = 0;
+
+	if (!this->acq_ignore_burst_count)
+	{
+		return FALSE;
+	}
+
+	time_monotonic(&now);
+	timersub(&now, &this->acq_ignore_burst_tv, &limit);
+
+	enumerator = this->acquires->create_enumerator(this->acquires);
+	while (enumerator->enumerate(enumerator, &acquire))
+	{
+		if (timercmp(&limit, &acquire->received, >))
+		{
+			break;
+		}
+		count++;
+	}
+	enumerator->destroy(enumerator);
+
+	return count >= this->acq_ignore_burst_count;
+}
+
 METHOD(trap_manager_t, acquire, void,
 	private_trap_manager_t *this, uint32_t reqid,
 	traffic_selector_t *src, traffic_selector_t *dst)
@@ -399,8 +448,8 @@ METHOD(trap_manager_t, acquire, void,
 	peer_cfg_t *peer;
 	child_cfg_t *child;
 	ike_sa_t *ike_sa;
-	host_t *host;
-	bool wildcard, ignore = FALSE;
+	host_t *host = NULL;
+	bool wildcard, ignore = FALSE, burst = FALSE;
 
 	this->lock->read_lock(this->lock);
 	enumerator = this->traps->create_enumerator(this->traps);
@@ -417,8 +466,8 @@ METHOD(trap_manager_t, acquire, void,
 
 	if (!found)
 	{
-		DBG1(DBG_CFG, "trap not found, unable to acquire reqid %d", reqid);
 		this->lock->unlock(this->lock);
+		DBG1(DBG_CFG, "trap not found, unable to acquire reqid %d", reqid);
 		return;
 	}
 	reqid = found->child_sa->get_reqid(found->child_sa);
@@ -434,16 +483,7 @@ METHOD(trap_manager_t, acquire, void,
 		if (this->acquires->find_first(this->acquires, (void*)acquire_by_dst,
 									  (void**)&acquire, host) == SUCCESS)
 		{
-			host->destroy(host);
 			ignore = TRUE;
-		}
-		else
-		{
-			INIT(acquire,
-				.dst = host,
-				.reqid = reqid,
-			);
-			this->acquires->insert_last(this->acquires, acquire);
 		}
 	}
 	else
@@ -453,19 +493,40 @@ METHOD(trap_manager_t, acquire, void,
 		{
 			ignore = TRUE;
 		}
+	}
+	if (!ignore)
+	{
+		if (burst_detected(this))
+		{
+			burst = TRUE;
+		}
 		else
 		{
 			INIT(acquire,
+				.dst = host,
 				.reqid = reqid,
 			);
-			this->acquires->insert_last(this->acquires, acquire);
+			if (this->acq_ignore_burst_count)
+			{
+				time_monotonic(&acquire->received);
+			}
+			this->acquires->insert_first(this->acquires, acquire);
 		}
 	}
 	this->mutex->unlock(this->mutex);
-	if (ignore)
+	if (ignore || burst)
 	{
-		DBG1(DBG_CFG, "ignoring acquire, connection attempt pending");
 		this->lock->unlock(this->lock);
+		DESTROY_IF(host);
+		if (ignore)
+		{
+			DBG1(DBG_CFG, "ignoring acquire, connection attempt pending");
+		}
+		else
+		{
+			DBG1(DBG_CFG, "more than %u acquires in %u ms, ignoring acquire",
+				 this->acq_ignore_burst_count, this->acq_ignore_burst_ms);
+		}
 		return;
 	}
 	peer = found->peer_cfg->get_ref(found->peer_cfg);
@@ -662,8 +723,22 @@ trap_manager_t *trap_manager_create(void)
 		.lock = rwlock_create(RWLOCK_TYPE_DEFAULT),
 		.condvar = rwlock_condvar_create(),
 		.ignore_acquire_ts = lib->settings->get_bool(lib->settings,
-										"%s.ignore_acquire_ts", FALSE, lib->ns),
+								"%s.ignore_acquire_ts", FALSE, lib->ns),
+		.acq_ignore_burst_count = lib->settings->get_int(lib->settings,
+								"%s.acquire_ignore_burst_count", 0, lib->ns),
+		.acq_ignore_burst_ms = lib->settings->get_int(lib->settings,
+								"%s.acquire_ignore_burst_time", 0, lib->ns),
 	);
+
+	if (this->acq_ignore_burst_ms)
+	{
+		timeval_add_ms(&this->acq_ignore_burst_tv, this->acq_ignore_burst_ms);
+	}
+	else
+	{	/* no burst time, ignore burst count */
+		this->acq_ignore_burst_count = 0;
+	}
+
 	charon->bus->add_listener(charon->bus, &this->listener.listener);
 
 	return &this->public;

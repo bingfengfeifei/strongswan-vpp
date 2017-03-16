@@ -23,6 +23,13 @@ charon.accept_unencrypted_mainmode_messages = no
 	what the implications are and require compatibility to such devices (for
 	example, some SonicWall boxes).
 
+charon.acquire_ignore_burst_count = 0
+	Number of acquires for trap policies allowed within a given time period.
+
+charon.acquire_ignore_burst_time = 0
+	Time period in milliseconds in which a specific number of acquires for trap
+	policies are allowed.
+
 charon.block_threshold = 5
 	Maximum number of half-open IKE_SAs for a single peer IP.
 
@@ -145,7 +152,7 @@ charon.ignore_acquire_ts = no
 
 	If this is disabled the traffic selectors from the kernel's acquire events,
 	which are derived from the triggering packet, are prepended to the traffic
-	selectors from the configuration for IKEv2 connection. By enabling this,
+	selectors from the configuration for IKEv2 connections. By enabling this,
 	such specific traffic selectors will be ignored and only the ones in the
 	config will	be sent. This always happens for IKEv1 connections as the
 	protocol only supports one set of traffic selectors per CHILD_SA.
