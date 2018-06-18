@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018 Andreas Steffen
  * Copyright (C) 2007-2015 Tobias Brunner
  * Copyright (C) 2005-2006 Martin Willi
  * Copyright (C) 2005 Jan Hutter
@@ -239,6 +240,11 @@ enum payload_type_t {
 	 */
 	PLV2_ID_PEER = 128,
 #endif /* ME */
+
+	/**
+	 * Quantum-Safe Key Exchange
+	 */
+	PLV2_QSKE = 129,
 
 	/**
 	 * NAT discovery payload (NAT-D) (drafts).

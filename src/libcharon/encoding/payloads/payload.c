@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018 Andreas Steffen
  * Copyright (C) 2007 Tobias Brunner
  * Copyright (C) 2005-2006 Martin Willi
  * Copyright (C) 2005 Jan Hutter
@@ -24,6 +25,7 @@
 #include <encoding/payloads/nonce_payload.h>
 #include <encoding/payloads/id_payload.h>
 #include <encoding/payloads/ke_payload.h>
+#include <encoding/payloads/qske_payload.h>
 #include <encoding/payloads/notify_payload.h>
 #include <encoding/payloads/auth_payload.h>
 #include <encoding/payloads/cert_payload.h>
@@ -85,12 +87,14 @@ ENUM_NEXT(payload_type_names, PLV2_SECURITY_ASSOCIATION, PLV2_FRAGMENT, PLV1_NAT
 #ifdef ME
 ENUM_NEXT(payload_type_names, PLV2_ID_PEER, PLV2_ID_PEER, PLV2_FRAGMENT,
 	"ID_PEER");
-ENUM_NEXT(payload_type_names, PLV1_NAT_D_DRAFT_00_03, PLV1_FRAGMENT, PLV2_ID_PEER,
+ENUM_NEXT(payload_type_names, PLV2_QSKE, PLV1_FRAGMENT, PLV2_ID_PEER,
+	"QUANTUM_SAFE_KEY_EXCHANGE",
 	"NAT_D_DRAFT_V1",
 	"NAT_OA_DRAFT_V1",
 	"FRAGMENT");
 #else
-ENUM_NEXT(payload_type_names, PLV1_NAT_D_DRAFT_00_03, PLV1_FRAGMENT, PLV2_FRAGMENT,
+ENUM_NEXT(payload_type_names, PLV2_QSKE, PLV1_FRAGMENT, PLV2_FRAGMENT,
+	"QUANTUM_SAFE_KEY_EXCHANGE",
 	"NAT_D_DRAFT_V1",
 	"NAT_OA_DRAFT_V1",
 	"FRAGMENT");
@@ -156,12 +160,14 @@ ENUM_NEXT(payload_type_short_names, PLV2_SECURITY_ASSOCIATION, PLV2_FRAGMENT, PL
 #ifdef ME
 ENUM_NEXT(payload_type_short_names, PLV2_ID_PEER, PLV2_ID_PEER, PLV2_FRAGMENT,
 	"IDp");
-ENUM_NEXT(payload_type_short_names, PLV1_NAT_D_DRAFT_00_03, PLV1_FRAGMENT, PLV2_ID_PEER,
+ENUM_NEXT(payload_type_short_names, PLV2_QSKE, PLV1_FRAGMENT, PLV2_ID_PEER,
+	"QSKE",
 	"NAT-D",
 	"NAT-OA",
 	"FRAG");
 #else
-ENUM_NEXT(payload_type_short_names, PLV1_NAT_D_DRAFT_00_03, PLV1_FRAGMENT, PLV2_FRAGMENT,
+ENUM_NEXT(payload_type_short_names, PLV2_QSKE, PLV1_FRAGMENT, PLV2_FRAGMENT,
+	"QSKE",
 	"NAT-D",
 	"NAT-OA",
 	"FRAG");
@@ -231,6 +237,8 @@ payload_t *payload_create(payload_type_t type)
 		case PLV2_KEY_EXCHANGE:
 		case PLV1_KEY_EXCHANGE:
 			return (payload_t*)ke_payload_create(type);
+		case PLV2_QSKE:
+			return (payload_t*)qske_payload_create();
 		case PLV2_NOTIFY:
 		case PLV1_NOTIFY:
 			return (payload_t*)notify_payload_create(type);
@@ -297,6 +305,10 @@ bool payload_is_known(payload_type_t type, uint8_t maj_ver)
 			/* fall-through */
 		case IKEV2_MAJOR_VERSION:
 			if (type >= PLV2_SECURITY_ASSOCIATION && type <= PLV2_EAP)
+			{
+				return TRUE;
+			}
+			if (type == PLV2_QSKE)
 			{
 				return TRUE;
 			}

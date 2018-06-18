@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018 Andreas Steffen
  * Copyright (C) 2007 Tobias Brunner
  * Copyright (C) 2005-2011 Martin Willi
  * Copyright (C) 2005 Jan Hutter
@@ -127,6 +128,9 @@ enum exchange_type_t{
 	 */
 	ME_CONNECT = 240,
 #endif /* ME */
+
+	/* IKE_INTERMEDIATE (draft-ietf-ipsecme-ikev2-intermediate-01) */
+	IKE_INTERMEDIATE = 241,
 
 	/**
 	 * Undefined exchange type, in private space.
