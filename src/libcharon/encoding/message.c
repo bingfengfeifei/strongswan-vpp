@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2006-2018 Tobias Brunner
+ * Copyright (C) 2018 Andreas Steffen
+ * Copyright (C) 2006-2014 Tobias Brunner
  * Copyright (C) 2005-2010 Martin Willi
  * Copyright (C) 2010 revosec AG
  * Copyright (C) 2006 Daniel Roethlisberger
@@ -400,6 +401,42 @@ static payload_order_t create_child_sa_r_order[] = {
 	{PLV2_FRAGMENT,					0},
 };
 
+/**
+ * Message rule for IKE_AUX from initiator.
+ */
+static payload_rule_t ike_aux_i_rules[] = {
+/*	payload type					min	max						encr	suff */
+	{PLV2_FRAGMENT,					0,	1,						TRUE,	TRUE},
+	{PLV2_QSKE,						0,	1,						TRUE,	TRUE},
+};
+
+/**
+ * payload order for IKE_AUX initiator
+ */
+static payload_order_t ike_aux_i_order[] = {
+/*	payload type					notify type */
+	{PLV2_QSKE,						0},
+	{PLV2_FRAGMENT,					0},
+};
+
+/**
+ * Message rule for IKE_AUX from responder.
+ */
+static payload_rule_t ike_aux_r_rules[] = {
+/*	payload type					min	max						encr	suff */
+	{PLV2_FRAGMENT,					0,	1,						TRUE,	TRUE},
+	{PLV2_QSKE,						0,	1,						TRUE,	TRUE},
+};
+
+/**
+ * payload order for IKE_AUX responder
+ */
+static payload_order_t ike_aux_r_order[] = {
+/*	payload type					notify type */
+	{PLV2_QSKE,						0},
+	{PLV2_FRAGMENT,					0},
+};
+
 #ifdef ME
 /**
  * Message rule for ME_CONNECT from initiator.
@@ -766,6 +803,14 @@ static message_rule_t message_rules[] = {
 	{CREATE_CHILD_SA,	FALSE,	TRUE,
 		countof(create_child_sa_r_rules), create_child_sa_r_rules,
 		countof(create_child_sa_r_order), create_child_sa_r_order,
+	},
+	{IKE_AUX,			TRUE,	TRUE,
+		countof(ike_aux_i_rules), ike_aux_i_rules,
+		countof(ike_aux_i_order), ike_aux_i_order,
+	},
+	{IKE_AUX,			FALSE,	TRUE,
+		countof(ike_aux_r_rules), ike_aux_r_rules,
+		countof(ike_aux_r_order), ike_aux_r_order,
 	},
 #ifdef ME
 	{ME_CONNECT,		TRUE,	TRUE,

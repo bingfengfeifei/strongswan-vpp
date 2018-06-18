@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018 Andreas Steffen
  * Copyright (C) 2007 Tobias Brunner
  * Copyright (C) 2005-2006 Martin Willi
  * Copyright (C) 2005 Jan Hutter
@@ -129,14 +130,17 @@ ENUM_NEXT(exchange_type_names, QUICK_MODE, IKE_SESSION_RESUME, TRANSACTION,
 	"INFORMATIONAL",
 	"IKE_SESSION_RESUME");
 #ifdef ME
-ENUM_NEXT(exchange_type_names, ME_CONNECT, ME_CONNECT, IKE_SESSION_RESUME,
-	"ME_CONNECT");
+ENUM_NEXT(exchange_type_names, ME_CONNECT, IKE_AUX, IKE_SESSION_RESUME,
+	"ME_CONNECT",
+	"IKE_AUX");
 ENUM_NEXT(exchange_type_names, EXCHANGE_TYPE_UNDEFINED,
-							   EXCHANGE_TYPE_UNDEFINED, ME_CONNECT,
+							   EXCHANGE_TYPE_UNDEFINED, IKE_AUX,
 	"EXCHANGE_TYPE_UNDEFINED");
 #else
+ENUM_NEXT(exchange_type_names, IKE_AUX, IKE_AUX, IKE_SESSION_RESUME,
+	"IKE_AUX");
 ENUM_NEXT(exchange_type_names, EXCHANGE_TYPE_UNDEFINED,
-							   EXCHANGE_TYPE_UNDEFINED, IKE_SESSION_RESUME,
+							   EXCHANGE_TYPE_UNDEFINED, IKE_AUX,
 	"EXCHANGE_TYPE_UNDEFINED");
 #endif /* ME */
 ENUM_END(exchange_type_names, EXCHANGE_TYPE_UNDEFINED);
@@ -218,6 +222,7 @@ METHOD(payload_t, verify, status_t,
 			break;
 		case IKE_SA_INIT:
 		case IKE_AUTH:
+		case IKE_AUX:
 		case CREATE_CHILD_SA:
 		case INFORMATIONAL:
 		case IKE_SESSION_RESUME:

@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2018 Andreas Steffen
  * Copyright (C) 2012-2014 Tobias Brunner
  * Copyright (C) 2005-2010 Martin Willi
  * Copyright (C) 2005 Jan Hutter
@@ -1482,6 +1483,16 @@ static void set_from_proposal_v2(private_proposal_substructure_t *this,
 	{
 		transform = transform_substructure_create_type(PLV2_TRANSFORM_SUBSTRUCTURE,
 												DIFFIE_HELLMAN_GROUP, alg);
+		add_transform_substructure(this, transform);
+	}
+	enumerator->destroy(enumerator);
+
+	/* qske mechanisms */
+	enumerator = proposal->create_enumerator(proposal, QSKE_MECHANISM);
+	while (enumerator->enumerate(enumerator, &alg, NULL))
+	{
+		transform = transform_substructure_create_type(PLV2_TRANSFORM_SUBSTRUCTURE,
+												QSKE_MECHANISM, alg);
 		add_transform_substructure(this, transform);
 	}
 	enumerator->destroy(enumerator);

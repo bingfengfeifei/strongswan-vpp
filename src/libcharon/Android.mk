@@ -47,6 +47,7 @@ encoding/payloads/unknown_payload.c encoding/payloads/unknown_payload.h \
 encoding/payloads/vendor_id_payload.c encoding/payloads/vendor_id_payload.h \
 encoding/payloads/hash_payload.c encoding/payloads/hash_payload.h \
 encoding/payloads/fragment_payload.c encoding/payloads/fragment_payload.h \
+encoding/payloads/qske_payload.c encoding/payloads/qske_payload.h \
 kernel/kernel_interface.c kernel/kernel_interface.h \
 kernel/kernel_ipsec.c kernel/kernel_ipsec.h \
 kernel/kernel_net.c kernel/kernel_net.h \
