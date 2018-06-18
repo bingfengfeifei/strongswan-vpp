@@ -106,7 +106,9 @@ CONFIG_OPTS = \
 	--enable-systemd \
 	--enable-counters \
 	--enable-save-keys \
-	--enable-python-eggs-install
+	--enable-python-eggs-install \
+	--enable-qske-newhope \
+	--enable-oqs
 
 export ADA_PROJECT_PATH=/usr/local/ada/lib/gnat
 
