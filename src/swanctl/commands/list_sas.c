@@ -2,7 +2,7 @@
  * Copyright (C) 2014 Martin Willi
  * Copyright (C) 2014 revosec AG
  *
- * Copyright (C) 2016 Andreas Steffen
+ * Copyright (C) 2016-2018 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
 
  * This program is free software; you can redistribute it and/or modify it
@@ -290,6 +290,10 @@ CALLBACK(ike_sa, int,
 			}
 			printf("/%s", ike->get(ike, "prf-alg"));
 			printf("/%s", ike->get(ike, "dh-group"));
+			if (ike->get(ike, "qske-mechanism"))
+			{
+				printf("/%s", ike->get(ike, "qske-mechanism"));
+			}
 			if (streq(ike->get(ike, "ppk"), "yes"))
 			{
 				printf("/PPK");
