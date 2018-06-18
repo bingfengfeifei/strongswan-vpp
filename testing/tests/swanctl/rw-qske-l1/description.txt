@@ -1,0 +1,8 @@
+The roadwarriors <b>carol</b> and <b>dave</b> set up a connection each to gateway <b>moon</b>.
+The IKEv2 hybrid key exchange is using the traditional Diffie-Hellman groups CURVE_25519 and
+ECP_256_BP, respectively in a first round, followed by a Quantum-Save Key Exchange with the
+lattice-based QSKE_NEWHOPE_L1 and isogeny-based QSKE_SIKE_L1 mechanisms, respectively.
+<p>
+Both <b>carol</b> and <b>dave</b> request a <b>virtual IP</b> via the IKEv2 configuration payload.
+The gateway <b>moon</b> assigns virtual IP addresses from the pool 10.3.0.0/28 in a monotonously
+increasing order.
