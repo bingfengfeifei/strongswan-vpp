@@ -11,7 +11,7 @@ crypto/proposal/proposal_keywords.c crypto/proposal/proposal_keywords_static.c \
 crypto/prfs/prf.c crypto/prfs/mac_prf.c crypto/pkcs5.c \
 crypto/rngs/rng.c crypto/prf_plus.c crypto/signers/signer.c \
 crypto/signers/mac_signer.c crypto/crypto_factory.c crypto/crypto_tester.c \
-crypto/diffie_hellman.c crypto/aead.c crypto/transform.c \
+crypto/diffie_hellman.c crypto/aead.c crypto/transform.c crypto/qske_mechanism.c \
 crypto/iv/iv_gen.c crypto/iv/iv_gen_rand.c crypto/iv/iv_gen_seq.c \
 crypto/iv/iv_gen_null.c \
 crypto/xofs/xof.c crypto/xofs/xof_bitspender.c \
@@ -68,7 +68,7 @@ library.h \
 asn1/asn1.h asn1/asn1_parser.h asn1/oid.h bio/bio_reader.h bio/bio_writer.h \
 collections/blocking_queue.h collections/enumerator.h collections/hashtable.h \
 collections/linked_list.h collections/array.h collections/dictionary.h \
-crypto/crypters/crypter.h crypto/hashers/hasher.h \
+crypto/crypters/crypter.h crypto/hashers/hasher.h crypto/qske_mechanism.h \
 crypto/hashers/hash_algorithm_set.h crypto/mac.h crypto/proposal/proposal.h \
 crypto/proposal/proposal_keywords.h crypto/proposal/proposal_keywords_static.h \
 crypto/prfs/prf.h crypto/prfs/mac_prf.h crypto/rngs/rng.h crypto/nonce_gen.h \

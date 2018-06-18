@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006-2009 Martin Willi
+ * Copyright (C) 2018 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -16,6 +17,7 @@
 #include <crypto/transform.h>
 #include <crypto/hashers/hasher.h>
 #include <crypto/rngs/rng.h>
+#include <crypto/qske_mechanism.h>
 
 ENUM_BEGIN(transform_type_names, ENCRYPTION_ALGORITHM, EXTENDED_SEQUENCE_NUMBERS,
 	"ENCRYPTION_ALGORITHM",
@@ -23,8 +25,9 @@ ENUM_BEGIN(transform_type_names, ENCRYPTION_ALGORITHM, EXTENDED_SEQUENCE_NUMBERS
 	"INTEGRITY_ALGORITHM",
 	"DIFFIE_HELLMAN_GROUP",
 	"EXTENDED_SEQUENCE_NUMBERS");
-ENUM_NEXT(transform_type_names, HASH_ALGORITHM, EXTENDED_OUTPUT_FUNCTION,
-		  EXTENDED_SEQUENCE_NUMBERS,
+ENUM_NEXT(transform_type_names, QSKE_MECHANISM,
+		  EXTENDED_OUTPUT_FUNCTION, EXTENDED_SEQUENCE_NUMBERS,
+	"QSKE_MECHANISM",
 	"HASH_ALGORITHM",
 	"RANDOM_NUMBER_GENERATOR",
 	"AEAD_ALGORITHM",
@@ -65,6 +68,8 @@ enum_name_t* transform_get_enum_names(transform_type_t type)
 			return ext_out_function_names;
 		case COMPRESSION_ALGORITHM:
 			break;
+		case QSKE_MECHANISM:
+			return qske_mechanism_names;
 	}
 	return NULL;
 }

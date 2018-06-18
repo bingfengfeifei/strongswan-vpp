@@ -78,6 +78,11 @@ struct private_crypto_tester_t {
 	linked_list_t *dh;
 
 	/**
+	 * List of Quantum-Safe Key Encapsulation test vectors
+	 */
+	linked_list_t *qske;
+
+	/**
 	 * Is a test vector required to pass a test?
 	 */
 	bool required;
@@ -1453,6 +1458,148 @@ failure:
 	return !failed;
 }
 
+/**
+ * Benchmark a QSKE backend
+ */
+static u_int bench_qske(private_crypto_tester_t *this,
+						qske_mechanism_t mechanism, qske_constructor_t create)
+{
+	qske_t *a, *b;
+	struct timespec start;
+	chunk_t pk, ct, a_ss, b_ss;
+	u_int runs;
+
+	runs = 0;
+	start_timing(&start);
+	while (end_timing(&start) < this->bench_time)
+	{
+		a = create(mechanism);
+		b = create(mechanism);
+		if (!a || !b)
+					{
+			DESTROY_IF(a);
+			DESTROY_IF(b);
+			return 0;
+		}
+		if (a->get_public_key(a, &pk)      &&
+			b->set_public_key(b, pk)       &&
+			b->get_ciphertext(b, &ct)      &&
+			b->get_shared_secret(b, &b_ss) &&
+			a->set_ciphertext(a, ct)       &&
+			a->get_shared_secret(b, &a_ss) &&
+			chunk_equals(a_ss, b_ss))
+		{
+			runs++;
+		}
+		chunk_free(&pk);
+		chunk_free(&ct);
+		chunk_free(&a_ss);
+		chunk_free(&b_ss);
+		a->destroy(a);
+		b->destroy(b);
+	}
+	return runs;
+}
+
+METHOD(crypto_tester_t, test_qske, bool,
+	private_crypto_tester_t *this, qske_mechanism_t mechanism,
+	qske_constructor_t create, u_int *speed, const char *plugin_name)
+{
+	enumerator_t *enumerator;
+	chunk_t pk, ct, a_ss, b_ss;
+	qske_test_vector_t *v;
+	bool failed = FALSE;
+	u_int tested = 0;
+
+	enumerator = this->qske->create_enumerator(this->qske);
+	while (enumerator->enumerate(enumerator, &v))
+	{
+		qske_t *a, *b;
+
+		if (v->mechanism != mechanism)
+		{
+			continue;
+		}
+
+		a = create(mechanism);
+		b = create(mechanism);
+		if (!a || !b)
+		{
+			DESTROY_IF(a);
+			DESTROY_IF(b);
+			failed = TRUE;
+			tested++;
+			DBG1(DBG_LIB, "disabled %N[%s]: creating instance failed",
+				 qske_mechanism_names, mechanism, plugin_name);
+			break;
+		}
+		failed = TRUE;
+		tested++;
+
+		if (!a->set_nist_drbg_mode(a, TRUE, v->seed))
+		{
+			goto failure;
+		}
+		if (!a->get_public_key(a, &pk) || !chunk_equals(pk, v->pk))
+		{
+			goto failure;
+		}
+		if (!b->set_public_key(b, pk) || !b->get_ciphertext(b, &ct) ||
+			!chunk_equals(ct, v->ct))
+		{
+			goto failure;
+		}
+		if (!a->set_ciphertext(a, ct) || !a->get_shared_secret(a, &a_ss) ||
+			!chunk_equals(a_ss, v->ss))
+		{
+			goto failure;
+		}
+		if (!b->get_shared_secret(b, &b_ss) || !chunk_equals(b_ss, v->ss))
+		{
+			goto failure;
+		}
+		failed = FALSE;
+
+failure:
+		a->set_nist_drbg_mode(a, FALSE, chunk_empty);
+		a->destroy(a);
+		b->destroy(b);
+		chunk_free(&pk);
+		chunk_free(&ct);
+		chunk_free(&a_ss);
+		chunk_free(&b_ss);
+		if (failed)
+		{
+			DBG1(DBG_LIB, "disabled %N[%s]: %s test vector failed",
+				 qske_mechanism_names, mechanism, plugin_name, get_name(v));
+			break;
+		}
+	}
+	enumerator->destroy(enumerator);
+	if (!tested)
+	{
+		DBG1(DBG_LIB, "%s %N[%s]: no test vectors found / untestable",
+			 this->required ? "disabled" : "enabled ",
+			 qske_mechanism_names, mechanism, plugin_name);
+		return !this->required;
+	}
+	if (!failed)
+	{
+		if (speed)
+		{
+			*speed = bench_qske(this, mechanism, create);
+			DBG1(DBG_LIB, "enabled  %N[%s]: passed %u test vectors, %d points",
+				 qske_mechanism_names, mechanism, plugin_name, tested, *speed);
+		}
+		else
+		{
+			DBG1(DBG_LIB, "enabled  %N[%s]: passed %u test vectors",
+				 qske_mechanism_names, mechanism, plugin_name, tested);
+		}
+	}
+	return !failed;
+}
+
 METHOD(crypto_tester_t, add_crypter_vector, void,
 	private_crypto_tester_t *this, crypter_test_vector_t *vector)
 {
@@ -1501,6 +1648,12 @@ METHOD(crypto_tester_t, add_dh_vector, void,
 	this->dh->insert_last(this->dh, vector);
 }
 
+METHOD(crypto_tester_t, add_qske_vector, void,
+	private_crypto_tester_t *this, qske_test_vector_t *vector)
+{
+	this->qske->insert_last(this->qske, vector);
+}
+
 METHOD(crypto_tester_t, destroy, void,
 	private_crypto_tester_t *this)
 {
@@ -1512,6 +1665,7 @@ METHOD(crypto_tester_t, destroy, void,
 	this->xof->destroy(this->xof);
 	this->rng->destroy(this->rng);
 	this->dh->destroy(this->dh);
+	this->qske->destroy(this->qske);
 	free(this);
 }
 
@@ -1532,6 +1686,7 @@ crypto_tester_t *crypto_tester_create()
 			.test_xof = _test_xof,
 			.test_rng = _test_rng,
 			.test_dh = _test_dh,
+			.test_qske = _test_qske,
 			.add_crypter_vector = _add_crypter_vector,
 			.add_aead_vector = _add_aead_vector,
 			.add_signer_vector = _add_signer_vector,
@@ -1540,6 +1695,7 @@ crypto_tester_t *crypto_tester_create()
 			.add_xof_vector = _add_xof_vector,
 			.add_rng_vector = _add_rng_vector,
 			.add_dh_vector = _add_dh_vector,
+			.add_qske_vector = _add_qske_vector,
 			.destroy = _destroy,
 		},
 		.crypter = linked_list_create(),
@@ -1550,6 +1706,7 @@ crypto_tester_t *crypto_tester_create()
 		.xof = linked_list_create(),
 		.rng = linked_list_create(),
 		.dh = linked_list_create(),
+		.qske = linked_list_create(),
 
 		.required = lib->settings->get_bool(lib->settings,
 								"%s.crypto_test.required", FALSE, lib->ns),

@@ -56,6 +56,7 @@ struct entry_t {
 		rng_constructor_t create_rng;
 		nonce_gen_constructor_t create_nonce_gen;
 		dh_constructor_t create_dh;
+		qske_constructor_t create_qske;
 		void *create;
 	};
 };
@@ -116,6 +117,11 @@ struct private_crypto_factory_t {
 	 * registered diffie hellman, as entry_t
 	 */
 	linked_list_t *dhs;
+
+	/**
+	 * registered QSKE mechanisms, as entry_t
+	 */
+	linked_list_t *qskes;
 
 	/**
 	 * test manager to test crypto algorithms
@@ -436,6 +442,37 @@ METHOD(crypto_factory_t, create_dh, diffie_hellman_t*,
 	enumerator->destroy(enumerator);
 	this->lock->unlock(this->lock);
 	return diffie_hellman;
+}
+
+METHOD(crypto_factory_t, create_qske, qske_t*,
+	private_crypto_factory_t *this, qske_mechanism_t mechanism)
+{
+	enumerator_t *enumerator;
+	entry_t *entry;
+	qske_t *qske = NULL;
+
+	this->lock->read_lock(this->lock);
+	enumerator = this->qskes->create_enumerator(this->qskes);
+	while (enumerator->enumerate(enumerator, &entry))
+	{
+		if (entry->algo == mechanism)
+		{
+			if (this->test_on_create &&
+				!this->tester->test_qske(this->tester, mechanism,
+								entry->create_qske, NULL, default_plugin_name))
+			{
+				continue;
+			}
+			qske = entry->create_qske(mechanism);
+			if (qske)
+			{
+				break;
+			}
+		}
+	}
+	enumerator->destroy(enumerator);
+	this->lock->unlock(this->lock);
+	return qske;
 }
 
 /**
@@ -811,6 +848,43 @@ METHOD(crypto_factory_t, remove_dh, void,
 	this->lock->unlock(this->lock);
 }
 
+METHOD(crypto_factory_t, add_qske, bool,
+	private_crypto_factory_t *this, qske_mechanism_t mechanism,
+	const char *plugin_name, qske_constructor_t create)
+{
+	u_int speed = 0;
+
+	if (!this->test_on_add ||
+		this->tester->test_qske(this->tester, mechanism, create,
+							  this->bench ? &speed : NULL, plugin_name))
+	{
+		add_entry(this, this->qskes, mechanism, plugin_name, 0, create);
+		return TRUE;
+	}
+	this->test_failures++;
+	return FALSE;
+}
+
+METHOD(crypto_factory_t, remove_qske, void,
+	private_crypto_factory_t *this, qske_constructor_t create)
+{
+	entry_t *entry;
+	enumerator_t *enumerator;
+
+	this->lock->write_lock(this->lock);
+	enumerator = this->qskes->create_enumerator(this->qskes);
+	while (enumerator->enumerate(enumerator, &entry))
+	{
+		if (entry->create_qske == create)
+		{
+			this->qskes->remove_at(this->qskes, enumerator);
+			free(entry);
+		}
+	}
+	enumerator->destroy(enumerator);
+	this->lock->unlock(this->lock);
+}
+
 CALLBACK(entry_match, bool,
 	entry_t *a, va_list args)
 {
@@ -1005,6 +1079,30 @@ METHOD(crypto_factory_t, create_dh_enumerator, enumerator_t*,
 	return create_enumerator(this, this->dhs, dh_filter);
 }
 
+CALLBACK(qske_filter, bool,
+	void *n, enumerator_t *orig, va_list args)
+{
+	entry_t *entry;
+	qske_mechanism_t *algo;
+	const char **plugin_name;
+
+	VA_ARGS_VGET(args, algo, plugin_name);
+
+	if (orig->enumerate(orig, &entry))
+	{
+		*algo = entry->algo;
+		*plugin_name = entry->plugin_name;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+METHOD(crypto_factory_t, create_qske_enumerator, enumerator_t*,
+	private_crypto_factory_t *this)
+{
+	return create_enumerator(this, this->qskes, qske_filter);
+}
+
 CALLBACK(rng_filter, bool,
 	void *n, enumerator_t *orig, va_list args)
 {
@@ -1072,6 +1170,8 @@ METHOD(crypto_factory_t, add_test_vector, void,
 			return this->tester->add_rng_vector(this->tester, vector);
 		case DIFFIE_HELLMAN_GROUP:
 			return this->tester->add_dh_vector(this->tester, vector);
+		case QSKE_MECHANISM:
+			return this->tester->add_qske_vector(this->tester, vector);
 		default:
 			DBG1(DBG_LIB, "%N test vectors not supported, ignored",
 				 transform_type_names, type);
@@ -1137,6 +1237,10 @@ METHOD(enumerator_t, verify_enumerate, bool,
 			*valid = this->tester->test_dh(this->tester, entry->algo,
 							entry->create_dh, NULL, entry->plugin_name);
 			break;
+		case QSKE_MECHANISM:
+			*valid = this->tester->test_qske(this->tester, entry->algo,
+							entry->create_qske, NULL, entry->plugin_name);
+			break;
 		default:
 			return FALSE;
 	}
@@ -1186,6 +1290,9 @@ METHOD(crypto_factory_t, create_verify_enumerator, enumerator_t*,
 		case DIFFIE_HELLMAN_GROUP:
 			inner = this->dhs->create_enumerator(this->dhs);
 			break;
+		case QSKE_MECHANISM:
+			inner = this->qskes->create_enumerator(this->qskes);
+			break;
 		default:
 			this->lock->unlock(this->lock);
 			return enumerator_create_empty();
@@ -1216,6 +1323,7 @@ METHOD(crypto_factory_t, destroy, void,
 	this->rngs->destroy(this->rngs);
 	this->nonce_gens->destroy(this->nonce_gens);
 	this->dhs->destroy(this->dhs);
+	this->qskes->destroy(this->qskes);
 	this->tester->destroy(this->tester);
 	this->lock->destroy(this->lock);
 	free(this);
@@ -1239,6 +1347,7 @@ crypto_factory_t *crypto_factory_create()
 			.create_rng = _create_rng,
 			.create_nonce_gen = _create_nonce_gen,
 			.create_dh = _create_dh,
+			.create_qske = _create_qske,
 			.add_crypter = _add_crypter,
 			.remove_crypter = _remove_crypter,
 			.add_aead = _add_aead,
@@ -1257,6 +1366,8 @@ crypto_factory_t *crypto_factory_create()
 			.remove_nonce_gen = _remove_nonce_gen,
 			.add_dh = _add_dh,
 			.remove_dh = _remove_dh,
+			.add_qske = _add_qske,
+			.remove_qske = _remove_qske,
 			.create_crypter_enumerator = _create_crypter_enumerator,
 			.create_aead_enumerator = _create_aead_enumerator,
 			.create_signer_enumerator = _create_signer_enumerator,
@@ -1264,6 +1375,7 @@ crypto_factory_t *crypto_factory_create()
 			.create_prf_enumerator = _create_prf_enumerator,
 			.create_xof_enumerator = _create_xof_enumerator,
 			.create_dh_enumerator = _create_dh_enumerator,
+			.create_qske_enumerator = _create_qske_enumerator,
 			.create_rng_enumerator = _create_rng_enumerator,
 			.create_nonce_gen_enumerator = _create_nonce_gen_enumerator,
 			.add_test_vector = _add_test_vector,
@@ -1279,6 +1391,7 @@ crypto_factory_t *crypto_factory_create()
 		.rngs = linked_list_create(),
 		.nonce_gens = linked_list_create(),
 		.dhs = linked_list_create(),
+		.qskes = linked_list_create(),
 		.lock = rwlock_create(RWLOCK_TYPE_DEFAULT),
 		.tester = crypto_tester_create(),
 		.test_on_add = lib->settings->get_bool(lib->settings,

@@ -984,6 +984,7 @@ static bool proposal_add_supported_ike(private_proposal_t *this, bool aead)
 	integrity_algorithm_t integrity;
 	pseudo_random_function_t prf;
 	diffie_hellman_group_t group;
+	qske_mechanism_t mechanism;
 	const char *plugin_name;
 
 	if (aead)
@@ -1230,6 +1231,50 @@ static bool proposal_add_supported_ike(private_proposal_t *this, bool aead)
 				break;
 			case MODP_2048_BIT:
 				add_algorithm(this, DIFFIE_HELLMAN_GROUP, group, 0);
+				break;
+			default:
+				break;
+		}
+	}
+	enumerator->destroy(enumerator);
+
+	/* Round 1 adds QSKE mechanisms with at least 128 bit security strength */
+	enumerator = lib->crypto->create_qske_enumerator(lib->crypto);
+	while (enumerator->enumerate(enumerator, &mechanism, &plugin_name))
+	{
+		switch (mechanism)
+		{
+			case QSKE_NEWHOPE:
+			case QSKE_NEWHOPE_L1:
+			case QSKE_NEWHOPE_L5:
+			case QSKE_FRODO_AES_L1:
+			case QSKE_FRODO_AES_L3:
+			case QSKE_FRODO_SHAKE_L1:
+			case QSKE_FRODO_SHAKE_L3:
+			case QSKE_KYBER_L1:
+			case QSKE_KYBER_L3:
+			case QSKE_KYBER_L5:
+			case QSKE_BIKE1_L1:
+			case QSKE_BIKE1_L3:
+			case QSKE_BIKE1_L5:
+			case QSKE_BIKE2_L1:
+			case QSKE_BIKE2_L3:
+			case QSKE_BIKE2_L5:
+			case QSKE_BIKE3_L1:
+			case QSKE_BIKE3_L3:
+			case QSKE_BIKE3_L5:
+			case QSKE_SIKE_L1:
+			case QSKE_SIKE_L3:
+			case QSKE_SABER_L1:
+			case QSKE_SABER_L3:
+			case QSKE_SABER_L5:
+			case QSKE_LIMA_2P_L3:
+			case QSKE_LIMA_2P_L5:
+			case QSKE_LIMA_SP_L1:
+			case QSKE_LIMA_SP_L2:
+			case QSKE_LIMA_SP_L3:
+			case QSKE_LIMA_SP_L5:
+				add_algorithm(this, QSKE_MECHANISM, mechanism, 0);
 				break;
 			default:
 				break;

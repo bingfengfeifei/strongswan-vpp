@@ -35,6 +35,7 @@ typedef struct crypto_factory_t crypto_factory_t;
 #include <crypto/xofs/xof.h>
 #include <crypto/nonce_gen.h>
 #include <crypto/diffie_hellman.h>
+#include <crypto/qske_mechanism.h>
 #include <crypto/transform.h>
 
 #define CRYPTO_MAX_ALG_LINE          120   /* characters */
@@ -86,6 +87,11 @@ typedef nonce_gen_t* (*nonce_gen_constructor_t)();
  * - MODP_CUSTOM: chunk_t generator, chunk_t prime
  */
 typedef diffie_hellman_t* (*dh_constructor_t)(diffie_hellman_group_t group, ...);
+
+/**
+ * Constructor function for QSKE mechanisms
+ */
+typedef qske_t* (*qske_constructor_t)();
 
 /**
  * Handles crypto modules and creates instances.
@@ -172,6 +178,14 @@ struct crypto_factory_t {
 	 */
 	diffie_hellman_t* (*create_dh)(crypto_factory_t *this,
 								   diffie_hellman_group_t group, ...);
+
+	/**
+	 * Create a QSKE instance.
+	 *
+	 * @param mechanism		QSKE mechanism
+	 * @return				qske_t instance, NULL if not supported
+	 */
+	qske_t* (*create_qske)(crypto_factory_t *this, qske_mechanism_t mechanism);
 
 	/**
 	 * Register a crypter constructor.
@@ -340,6 +354,24 @@ struct crypto_factory_t {
 	void (*remove_dh)(crypto_factory_t *this, dh_constructor_t create);
 
 	/**
+	 * Register a QSKE constructor.
+	 *
+	 * @param mechanism		QSKE mechanism to constructor
+	 * @param plugin_name	plugin that registered this algorithm
+	 * @param create		constructor function for that algorithm
+	 * @return				TRUE if registered, FALSE if test vector failed
+	 */
+	bool (*add_qske)(crypto_factory_t *this, qske_mechanism_t mechanism,
+				   const char *plugin_name, qske_constructor_t create);
+
+	/**
+	 * Unregister a QSKE constructor.
+	 *
+	 * @param create		constructor function to unregister
+	 */
+	void (*remove_qske)(crypto_factory_t *this, qske_constructor_t create);
+
+	/**
 	 * Create an enumerator over all registered crypter algorithms.
 	 *
 	 * @return				enumerator over encryption_algorithm_t, plugin
@@ -387,6 +419,13 @@ struct crypto_factory_t {
 	 * @return				enumerator over diffie_hellman_group_t, plugin
 	 */
 	enumerator_t* (*create_dh_enumerator)(crypto_factory_t *this);
+
+	/**
+	 * Create an enumerator over all registered QSKE mechanisms
+	 *
+	 * @return				enumerator over qske_mechamism_t, plugin
+	 */
+	enumerator_t* (*create_qske_enumerator)(crypto_factory_t *this);
 
 	/**
 	 * Create an enumerator over all registered random generators.

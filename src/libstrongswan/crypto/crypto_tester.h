@@ -33,6 +33,7 @@ typedef struct prf_test_vector_t prf_test_vector_t;
 typedef struct xof_test_vector_t xof_test_vector_t;
 typedef struct rng_test_vector_t rng_test_vector_t;
 typedef struct dh_test_vector_t dh_test_vector_t;
+typedef struct qske_test_vector_t qske_test_vector_t;
 
 struct crypter_test_vector_t {
 	/** encryption algorithm this vector tests */
@@ -165,6 +166,21 @@ struct dh_test_vector_t {
 	size_t shared_len;
 };
 
+struct qske_test_vector_t {
+	/** QSKE mechanism to test */
+	qske_mechanism_t mechanism;
+	/** test vector number */
+	int count;
+	/** seed for NIST DRBG */
+	chunk_t seed;
+	/** public key */
+	chunk_t pk;
+	/** ciphertext */
+	chunk_t ct;
+	/*s* shared secret */
+	chunk_t ss;
+};
+
 /**
  * Cryptographic primitive testing framework.
  */
@@ -263,7 +279,17 @@ struct crypto_tester_t {
 	bool (*test_dh)(crypto_tester_t *this, diffie_hellman_group_t group,
 					dh_constructor_t create,
 					u_int *speed, const char *plugin_name);
-
+	/**
+	 * Test a Quantum-Safe Key Encapsulation implementation.
+	 *
+	 * @param mechanism		mechanism to test
+	 * @param create		constructor function for the QSKE backend
+	 * @param speed			speeed test result, NULL to omit
+	 * @return				TRUE if test passed
+	 */
+	bool (*test_qske)(crypto_tester_t *this, qske_mechanism_t mechanism,
+					qske_constructor_t create,
+					u_int *speed, const char *plugin_name);
 	/**
 	 * Add a test vector to test a crypter.
 	 *
@@ -319,6 +345,13 @@ struct crypto_tester_t {
 	 * @param vector		pointer to test vector
 	 */
 	void (*add_dh_vector)(crypto_tester_t *this, dh_test_vector_t *vector);
+
+	/**
+	 * Add a test vector to test a QSKE backend.
+	 *
+	 * @param vector		pointer to test vector
+	 */
+	void (*add_qske_vector)(crypto_tester_t *this, qske_test_vector_t *vector);
 
 	/**
 	 * Destroy a crypto_tester_t.
