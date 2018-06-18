@@ -54,6 +54,7 @@
 
 #include <daemon.h>
 #include <asn1/asn1.h>
+#include <crypto/qske_mechanism.h>
 #include <credentials/certificates/certificate.h>
 #include <credentials/certificates/x509.h>
 #include <counters_query.h>
@@ -438,6 +439,10 @@ static void list_ike(private_vici_query_t *this, vici_builder_t *b,
 		if (proposal->get_algorithm(proposal, DIFFIE_HELLMAN_GROUP, &alg, NULL))
 		{
 			b->add_kv(b, "dh-group", "%N", diffie_hellman_group_names, alg);
+		}
+		if (proposal->get_algorithm(proposal, QSKE_MECHANISM, &alg, NULL))
+		{
+			b->add_kv(b, "qske-mechanism", "%N", qske_mechanism_names, alg);
 		}
 	}
 	add_condition(b, ike_sa, "ppk", COND_PPK);
@@ -1232,6 +1237,7 @@ CALLBACK(get_algorithms, vici_message_t*,
 	pseudo_random_function_t prf;
 	ext_out_function_t xof;
 	diffie_hellman_group_t group;
+	qske_mechanism_t mechanism;
 	rng_quality_t quality;
 	const char *plugin_name;
 
@@ -1296,6 +1302,15 @@ CALLBACK(get_algorithms, vici_message_t*,
 	while (enumerator->enumerate(enumerator, &group, &plugin_name))
 	{
 		add_algorithm(b, diffie_hellman_group_names, group, plugin_name);
+	}
+	enumerator->destroy(enumerator);
+	b->end_section(b);
+
+	b->begin_section(b, "qske");
+	enumerator = lib->crypto->create_qske_enumerator(lib->crypto);
+	while (enumerator->enumerate(enumerator, &mechanism, &plugin_name))
+	{
+		add_algorithm(b, qske_mechanism_names, mechanism, plugin_name);
 	}
 	enumerator->destroy(enumerator);
 	b->end_section(b);
