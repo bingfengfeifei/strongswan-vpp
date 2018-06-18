@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006-2009 Martin Willi
+ * Copyright (C) 2018 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -34,6 +35,7 @@ enum transform_type_t {
 	INTEGRITY_ALGORITHM = 3,
 	DIFFIE_HELLMAN_GROUP = 4,
 	EXTENDED_SEQUENCE_NUMBERS = 5,
+	QSKE_MECHANISM = 255,
 	HASH_ALGORITHM = 256,
 	RANDOM_NUMBER_GENERATOR = 257,
 	AEAD_ALGORITHM = 258,

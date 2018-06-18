@@ -117,6 +117,8 @@ struct plugin_feature_t {
 		FEATURE_DRBG,
 		/** diffie_hellman_t */
 		FEATURE_DH,
+		/** qske_t */
+		FEATURE_QSKE,
 		/** rng_t */
 		FEATURE_RNG,
 		/** nonce_gen_t */
@@ -184,6 +186,8 @@ struct plugin_feature_t {
 		hash_algorithm_t hasher;
 		/** FEATURE_DH */
 		diffie_hellman_group_t dh_group;
+		/** FEATURE_QSKE */
+		qske_mechanism_t qske_mechanism;
 		/** FEATURE_RNG */
 		rng_quality_t rng_quality;
 		/** FEATURE_PRIVKEY */
@@ -290,6 +294,7 @@ struct plugin_feature_t {
 #define _PLUGIN_FEATURE_XOF(kind, alg)						__PLUGIN_FEATURE(kind, XOF, .xof = alg)
 #define _PLUGIN_FEATURE_DRBG(kind, type)					__PLUGIN_FEATURE(kind, DRBG, .drbg = type)
 #define _PLUGIN_FEATURE_DH(kind, group)						__PLUGIN_FEATURE(kind, DH, .dh_group = group)
+#define _PLUGIN_FEATURE_QSKE(kind, mechanism)				__PLUGIN_FEATURE(kind, QSKE, .qske_mechanism = mechanism)
 #define _PLUGIN_FEATURE_RNG(kind, quality)					__PLUGIN_FEATURE(kind, RNG, .rng_quality = quality)
 #define _PLUGIN_FEATURE_NONCE_GEN(kind, ...)				__PLUGIN_FEATURE(kind, NONCE_GEN, .custom = NULL)
 #define _PLUGIN_FEATURE_PRIVKEY(kind, type)					__PLUGIN_FEATURE(kind, PRIVKEY, .privkey = type)
@@ -324,6 +329,7 @@ struct plugin_feature_t {
 #define _PLUGIN_FEATURE_REGISTER_XOF(type, f)				__PLUGIN_FEATURE_REGISTER(type, f)
 #define _PLUGIN_FEATURE_REGISTER_DRBG(type, f)				__PLUGIN_FEATURE_REGISTER(type, f)
 #define _PLUGIN_FEATURE_REGISTER_DH(type, f)				__PLUGIN_FEATURE_REGISTER(type, f)
+#define _PLUGIN_FEATURE_REGISTER_QSKE(type, f)				__PLUGIN_FEATURE_REGISTER(type, f)
 #define _PLUGIN_FEATURE_REGISTER_RNG(type, f)				__PLUGIN_FEATURE_REGISTER(type, f)
 #define _PLUGIN_FEATURE_REGISTER_NONCE_GEN(type, f)			__PLUGIN_FEATURE_REGISTER(type, f)
 #define _PLUGIN_FEATURE_REGISTER_PRIVKEY(type, f, final)	__PLUGIN_FEATURE_REGISTER_BUILDER(type, f, final)

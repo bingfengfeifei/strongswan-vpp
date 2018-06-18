@@ -13,7 +13,7 @@ crypto/prfs/prf.c crypto/prfs/mac_prf.c crypto/pkcs5.c \
 crypto/rngs/rng.c crypto/rngs/rng_tester.c \
 crypto/prf_plus.c crypto/signers/signer.c \
 crypto/signers/mac_signer.c crypto/crypto_factory.c crypto/crypto_tester.c \
-crypto/diffie_hellman.c crypto/aead.c crypto/transform.c \
+crypto/diffie_hellman.c crypto/aead.c crypto/transform.c crypto/qske_mechanism.c \
 crypto/iv/iv_gen.c crypto/iv/iv_gen_rand.c crypto/iv/iv_gen_seq.c \
 crypto/iv/iv_gen_null.c \
 crypto/xofs/xof.c crypto/xofs/xof_bitspender.c \
@@ -73,7 +73,7 @@ collections/linked_list.h collections/array.h collections/dictionary.h \
 crypto/crypters/crypter.h crypto/drbgs/drbg.h crypto/hashers/hasher.h \
 crypto/hashers/hash_algorithm_set.h crypto/mac.h crypto/proposal/proposal.h \
 crypto/proposal/proposal_keywords.h crypto/proposal/proposal_keywords_static.h \
-crypto/rngs/rng.h crypto/rngs/rng_tester.h \
+crypto/rngs/rng.h crypto/rngs/rng_tester.h crypto/qske_mechanism.h \
 crypto/prfs/prf.h crypto/prfs/mac_prf.h crypto/nonce_gen.h \
 crypto/prf_plus.h crypto/signers/signer.h crypto/signers/mac_signer.h \
 crypto/crypto_factory.h crypto/crypto_tester.h crypto/diffie_hellman.h \

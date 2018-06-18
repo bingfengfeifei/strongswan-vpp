@@ -20,6 +20,7 @@
 #include <crypto/crypters/crypter.h>
 #include <crypto/signers/signer.h>
 #include <crypto/diffie_hellman.h>
+#include <crypto/qske_mechanism.h>
 
 %}
 struct proposal_token {
@@ -175,3 +176,33 @@ ntru256,          DIFFIE_HELLMAN_GROUP, NTRU_256_BIT,              0
 newhope128,       DIFFIE_HELLMAN_GROUP, NH_128_BIT,                0
 noesn,            EXTENDED_SEQUENCE_NUMBERS, NO_EXT_SEQ_NUMBERS,   0
 esn,              EXTENDED_SEQUENCE_NUMBERS, EXT_SEQ_NUMBERS,      0
+qskenewhope,      QSKE_MECHANISM, QSKE_NEWHOPE,                    0
+qskenewhope1,     QSKE_MECHANISM, QSKE_NEWHOPE_L1,                 0
+qskenewhope5,     QSKE_MECHANISM, QSKE_NEWHOPE_L5,                 0
+qskefrodoa1,      QSKE_MECHANISM, QSKE_FRODO_AES_L1,               0
+qskefrodoa3,      QSKE_MECHANISM, QSKE_FRODO_AES_L3,               0
+qskefrodos1,      QSKE_MECHANISM, QSKE_FRODO_SHAKE_L1,             0
+qskefrodos3,      QSKE_MECHANISM, QSKE_FRODO_SHAKE_L3,             0
+qskekyber1,       QSKE_MECHANISM, QSKE_KYBER_L1,                   0
+qskekyber3,       QSKE_MECHANISM, QSKE_KYBER_L3,                   0
+qskekyber5,       QSKE_MECHANISM, QSKE_KYBER_L5,                   0
+qskebike11,       QSKE_MECHANISM, QSKE_BIKE1_L1,                   0
+qskebike13,       QSKE_MECHANISM, QSKE_BIKE1_L3,                   0
+qskebike15,       QSKE_MECHANISM, QSKE_BIKE1_L5,                   0
+qskebike21,       QSKE_MECHANISM, QSKE_BIKE2_L1,                   0
+qskebike23,       QSKE_MECHANISM, QSKE_BIKE2_L3,                   0
+qskebike25,       QSKE_MECHANISM, QSKE_BIKE2_L5,                   0
+qskebike31,       QSKE_MECHANISM, QSKE_BIKE3_L1,                   0
+qskebike33,       QSKE_MECHANISM, QSKE_BIKE3_L3,                   0
+qskebike35,       QSKE_MECHANISM, QSKE_BIKE3_L5,                   0
+qskesike1,        QSKE_MECHANISM, QSKE_SIKE_L1,                    0
+qskesike3,        QSKE_MECHANISM, QSKE_SIKE_L3,                    0
+qskesaber1,       QSKE_MECHANISM, QSKE_SABER_L1,                   0
+qskesaber3,       QSKE_MECHANISM, QSKE_SABER_L3,                   0
+qskesaber5,       QSKE_MECHANISM, QSKE_SABER_L5,                   0
+qskelima2p3,      QSKE_MECHANISM, QSKE_LIMA_2P_L3,                 0
+qskelima2p5,      QSKE_MECHANISM, QSKE_LIMA_2P_L5,                 0
+qskelimasp1,      QSKE_MECHANISM, QSKE_LIMA_SP_L1,                 0
+qskelimasp2,      QSKE_MECHANISM, QSKE_LIMA_SP_L2,                 0
+qskelimasp3,      QSKE_MECHANISM, QSKE_LIMA_SP_L3,                 0
+qskelimasp5,      QSKE_MECHANISM, QSKE_LIMA_SP_L5,                 0

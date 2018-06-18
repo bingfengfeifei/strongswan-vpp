@@ -34,6 +34,7 @@ ENUM(plugin_feature_names, FEATURE_NONE, FEATURE_CUSTOM,
 	"XOF",
 	"DRBG",
 	"DH",
+	"QSKE"
 	"RNG",
 	"NONCE_GEN",
 	"PRIVKEY",
@@ -98,6 +99,9 @@ uint32_t plugin_feature_hash(plugin_feature_t *feature)
 			break;
 		case FEATURE_DH:
 			data = chunk_from_thing(feature->arg.dh_group);
+			break;
+		case FEATURE_QSKE:
+			data = chunk_from_thing(feature->arg.qske_mechanism);
 			break;
 		case FEATURE_PRIVKEY:
 			data = chunk_from_thing(feature->arg.privkey);
@@ -175,6 +179,8 @@ bool plugin_feature_matches(plugin_feature_t *a, plugin_feature_t *b)
 				return a->arg.drbg == b->arg.drbg;
 			case FEATURE_DH:
 				return a->arg.dh_group == b->arg.dh_group;
+			case FEATURE_QSKE:
+				return a->arg.qske_mechanism == b->arg.qske_mechanism;
 			case FEATURE_RNG:
 				return a->arg.rng_quality <= b->arg.rng_quality;
 			case FEATURE_NONCE_GEN:
@@ -234,6 +240,7 @@ bool plugin_feature_equals(plugin_feature_t *a, plugin_feature_t *b)
 			case FEATURE_XOF:
 			case FEATURE_DRBG:
 			case FEATURE_DH:
+			case FEATURE_QSKE:
 			case FEATURE_NONCE_GEN:
 			case FEATURE_RESOLVER:
 			case FEATURE_PRIVKEY:
@@ -337,6 +344,13 @@ char* plugin_feature_get_string(plugin_feature_t *feature)
 		case FEATURE_DH:
 			if (asprintf(&str, "%N:%N", plugin_feature_names, feature->type,
 					diffie_hellman_group_names, feature->arg.dh_group) > 0)
+			{
+				return str;
+			}
+			break;
+		case FEATURE_QSKE:
+			if (asprintf(&str, "%N:%N", plugin_feature_names, feature->type,
+					qske_mechanism_names, feature->arg.qske_mechanism) > 0)
 			{
 				return str;
 			}
@@ -506,6 +520,10 @@ bool plugin_feature_load(plugin_t *plugin, plugin_feature_t *feature,
 			lib->crypto->add_dh(lib->crypto, feature->arg.dh_group,
 								name, reg->arg.reg.f);
 			break;
+		case FEATURE_QSKE:
+			lib->crypto->add_qske(lib->crypto, feature->arg.qske_mechanism,
+								name, reg->arg.reg.f);
+			break;
 		case FEATURE_RNG:
 			lib->crypto->add_rng(lib->crypto, feature->arg.rng_quality,
 								name, reg->arg.reg.f);
@@ -597,6 +615,9 @@ bool plugin_feature_unload(plugin_t *plugin, plugin_feature_t *feature,
 			break;
 		case FEATURE_DH:
 			lib->crypto->remove_dh(lib->crypto, reg->arg.reg.f);
+			break;
+		case FEATURE_QSKE:
+			lib->crypto->remove_qske(lib->crypto, reg->arg.reg.f);
 			break;
 		case FEATURE_RNG:
 			lib->crypto->remove_rng(lib->crypto, reg->arg.reg.f);
