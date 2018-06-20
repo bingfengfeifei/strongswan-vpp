@@ -663,6 +663,13 @@ if MONOLITHIC
 endif
 endif
 
+if USE_QSKE_NEWHOPE
+  SUBDIRS += plugins/qske_newhope
+if MONOLITHIC
+  libstrongswan_la_LIBADD += plugins/qske_newhope/libstrongswan-qske-newhope.la
+endif
+endif
+
 if USE_TEST_VECTORS
   SUBDIRS += plugins/test_vectors
 if MONOLITHIC
@@ -689,4 +696,8 @@ endif
 
 if USE_NEWHOPE
   SUBDIRS += plugins/newhope/tests
+endif
+
+if USE_QSKE_NEWHOPE
+  SUBDIRS += plugins/qske_newhope/tests
 endif
