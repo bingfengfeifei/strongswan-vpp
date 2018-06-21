@@ -850,6 +850,7 @@ static void list_algs(FILE *out)
 	pseudo_random_function_t prf;
 	ext_out_function_t xof;
 	diffie_hellman_group_t group;
+	qske_mechanism_t mechanism;
 	rng_quality_t quality;
 	const char *plugin_name;
 	int len;
@@ -910,6 +911,13 @@ static void list_algs(FILE *out)
 	while (enumerator->enumerate(enumerator, &group, &plugin_name))
 	{
 		print_alg(out, &len, diffie_hellman_group_names, group, plugin_name);
+	}
+	fprintf(out, "\n  qske-mechanism:  ");
+	len = 13;
+	enumerator = lib->crypto->create_qske_enumerator(lib->crypto);
+	while (enumerator->enumerate(enumerator, &mechanism, &plugin_name))
+	{
+		print_alg(out, &len, qske_mechanism_names, mechanism, plugin_name);
 	}
 	enumerator->destroy(enumerator);
 	fprintf(out, "\n  random-gen:");
