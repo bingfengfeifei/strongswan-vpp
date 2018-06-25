@@ -27,6 +27,7 @@
 #include <crypto/hashers/hash_algorithm_set.h>
 #include <encoding/payloads/sa_payload.h>
 #include <encoding/payloads/ke_payload.h>
+#include <encoding/payloads/qske_payload.h>
 #include <encoding/payloads/nonce_payload.h>
 
 /** maximum retries to do with cookies/other dh groups */
@@ -68,6 +69,21 @@ struct private_ike_init_t {
 	 * Applying DH public value failed?
 	 */
 	bool dh_failed;
+
+	/**
+	 * QSKE mechanism to use
+	 */
+	qske_mechanism_t qske_mechanism;
+
+	/**
+	 * QSKE mechanism implementation
+	 */
+	qske_t *qske;
+
+	/**
+	 * Creating QSKE implementation failed
+	 */
+	bool qske_failed;
 
 	/**
 	 * Keymat derivation (from IKE_SA)
@@ -302,17 +318,68 @@ static bool send_use_ppk(private_ike_init_t *this)
 }
 
 /**
+ * Builds an SA payload as initiator, modified according to the proposed
+ * DH group and QSKE mechanism.
+ */
+static sa_payload_t *build_sa_payload(private_ike_init_t *this, ike_sa_id_t *id,
+									  ike_cfg_t *cfg)
+{
+	linked_list_t *proposals, *others;
+	enumerator_t *enumerator;
+	proposal_t *proposal;
+	sa_payload_t *sa_payload;
+
+	proposals = cfg->get_proposals(cfg);
+	others = linked_list_create();
+	enumerator = proposals->create_enumerator(proposals);
+	while (enumerator->enumerate(enumerator, (void**)&proposal))
+	{
+		/* include SPI of new IKE_SA when we are rekeying */
+		if (this->old_sa)
+		{
+			proposal->set_spi(proposal, id->get_initiator_spi(id));
+		}
+		/* move the selected DH group to the front of the proposal */
+		if (!proposal->promote_transform(proposal, DIFFIE_HELLMAN_GROUP,
+										 this->dh_group))
+		{	/* the proposal does not include the group, move to the back */
+			proposals->remove_at(proposals, enumerator);
+			others->insert_last(others, proposal);
+		}
+		else if (this->qske &&
+				 !proposal->promote_transform(proposal, QSKE_MECHANISM,
+											  this->qske_mechanism))
+		{	/* same for QSKE mechanisms, but add them before groups that don't
+			 * contain the DH group */
+			proposals->remove_at(proposals, enumerator);
+			others->insert_first(others, proposal);
+		}
+	}
+	enumerator->destroy(enumerator);
+	/* add proposals that don't contain the selected group */
+	enumerator = others->create_enumerator(others);
+	while (enumerator->enumerate(enumerator, (void**)&proposal))
+	{	/* no need to remove from the list as we destroy it anyway*/
+		proposals->insert_last(proposals, proposal);
+	}
+	enumerator->destroy(enumerator);
+	others->destroy(others);
+
+	sa_payload = sa_payload_create_from_proposals_v2(proposals);
+	proposals->destroy_offset(proposals, offsetof(proposal_t, destroy));
+	return sa_payload;
+}
+
+/**
  * build the payloads for the message
  */
 static bool build_payloads(private_ike_init_t *this, message_t *message)
 {
 	sa_payload_t *sa_payload;
 	ke_payload_t *ke_payload;
+	qske_payload_t *qske_payload;
 	nonce_payload_t *nonce_payload;
-	linked_list_t *proposal_list, *other_dh_groups;
 	ike_sa_id_t *id;
-	proposal_t *proposal;
-	enumerator_t *enumerator;
 	ike_cfg_t *ike_cfg;
 
 	id = this->ike_sa->get_id(this->ike_sa);
@@ -321,36 +388,7 @@ static bool build_payloads(private_ike_init_t *this, message_t *message)
 
 	if (this->initiator)
 	{
-		proposal_list = ike_cfg->get_proposals(ike_cfg);
-		other_dh_groups = linked_list_create();
-		enumerator = proposal_list->create_enumerator(proposal_list);
-		while (enumerator->enumerate(enumerator, (void**)&proposal))
-		{
-			/* include SPI of new IKE_SA when we are rekeying */
-			if (this->old_sa)
-			{
-				proposal->set_spi(proposal, id->get_initiator_spi(id));
-			}
-			/* move the selected DH group to the front of the proposal */
-			if (!proposal->promote_transform(proposal, DIFFIE_HELLMAN_GROUP,
-											 this->dh_group))
-			{	/* the proposal does not include the group, move to the back */
-				proposal_list->remove_at(proposal_list, enumerator);
-				other_dh_groups->insert_last(other_dh_groups, proposal);
-			}
-		}
-		enumerator->destroy(enumerator);
-		/* add proposals that don't contain the selected group */
-		enumerator = other_dh_groups->create_enumerator(other_dh_groups);
-		while (enumerator->enumerate(enumerator, (void**)&proposal))
-		{	/* no need to remove from the list as we destroy it anyway*/
-			proposal_list->insert_last(proposal_list, proposal);
-		}
-		enumerator->destroy(enumerator);
-		other_dh_groups->destroy(other_dh_groups);
-
-		sa_payload = sa_payload_create_from_proposals_v2(proposal_list);
-		proposal_list->destroy_offset(proposal_list, offsetof(proposal_t, destroy));
+		sa_payload = build_sa_payload(this, id, ike_cfg);
 	}
 	else
 	{
@@ -370,18 +408,22 @@ static bool build_payloads(private_ike_init_t *this, message_t *message)
 		DBG1(DBG_IKE, "creating KE payload failed");
 		return FALSE;
 	}
+	message->add_payload(message, (payload_t*)ke_payload);
+
 	nonce_payload = nonce_payload_create(PLV2_NONCE);
 	nonce_payload->set_nonce(nonce_payload, this->my_nonce);
+	message->add_payload(message, (payload_t*)nonce_payload);
 
-	if (this->old_sa)
-	{	/* payload order differs if we are rekeying */
-		message->add_payload(message, (payload_t*)nonce_payload);
-		message->add_payload(message, (payload_t*)ke_payload);
-	}
-	else
+	if (this->qske)
 	{
-		message->add_payload(message, (payload_t*)ke_payload);
-		message->add_payload(message, (payload_t*)nonce_payload);
+		qske_payload = qske_payload_create_from_qske(this->qske,
+													 this->initiator);
+		if (!qske_payload)
+		{
+			DBG1(DBG_IKE, "failed to create QSKE payload");
+			return FALSE;
+		}
+		message->add_payload(message, (payload_t*)qske_payload);
 	}
 
 	/* negotiate fragmentation if we are not rekeying */
@@ -507,6 +549,59 @@ static void process_sa_payload(private_ike_init_t *this, message_t *message,
 }
 
 /**
+ * Process a QSKE payload
+ */
+static void process_qske_payload(private_ike_init_t *this, qske_payload_t *qske)
+{
+	if (!this->initiator)
+	{
+		this->qske = this->keymat->create_qske(this->keymat,
+											   this->qske_mechanism);
+		if (this->qske &&
+			!this->qske->set_public_key(this->qske, qske->get_qske_data(qske)))
+		{
+			DBG1(DBG_IKE, "failed to set QSKE public key");
+			this->qske_failed = TRUE;
+		}
+	}
+	else if (this->qske)
+	{
+		if (this->qske->get_qske_mechanism(this->qske) != this->qske_mechanism)
+		{
+			DBG1(DBG_IKE, "QSKE mechanism in received payload doesn't match");
+			this->qske_failed = TRUE;
+		}
+		else if (!this->qske->set_ciphertext(this->qske,
+											 qske->get_qske_data(qske)))
+		{
+			DBG1(DBG_IKE, "failed to decrypt QSKE shared secret");
+			this->qske_failed = TRUE;
+		}
+	}
+}
+
+/**
+ * Process a QSKE payload during an IKE_INTERMEDIATE exchange
+ */
+static void process_qske_payload_intermediate(private_ike_init_t *this,
+											  qske_payload_t *qske)
+{
+	qske_mechanism_t qske_mechanism;
+
+	qske_mechanism = qske->get_qske_mechanism(qske);
+	if (qske_mechanism == this->qske_mechanism)
+	{
+		process_qske_payload(this, qske);
+	}
+	else
+	{
+		DBG1(DBG_IKE, "QSKE mechanism %N differs from negotiated "
+			 "mechanism %N", qske_mechanism_names, qske_mechanism,
+			 qske_mechanism_names, this->qske_mechanism);
+	}
+}
+
+/**
  * Read payloads from message
  */
 static void process_payloads(private_ike_init_t *this, message_t *message)
@@ -514,6 +609,7 @@ static void process_payloads(private_ike_init_t *this, message_t *message)
 	enumerator_t *enumerator;
 	payload_t *payload;
 	ke_payload_t *ke_payload = NULL;
+	qske_payload_t *qske_payload = NULL;
 
 	enumerator = message->create_payload_enumerator(message);
 	while (enumerator->enumerate(enumerator, &payload))
@@ -530,6 +626,14 @@ static void process_payloads(private_ike_init_t *this, message_t *message)
 				ke_payload = (ke_payload_t*)payload;
 
 				this->dh_group = ke_payload->get_dh_group_number(ke_payload);
+				break;
+			}
+			case PLV2_QSKE:
+			{
+				qske_payload = (qske_payload_t*)payload;
+
+				this->qske_mechanism = qske_payload->get_qske_mechanism(
+																qske_payload);
 				break;
 			}
 			case PLV2_NONCE:
@@ -629,43 +733,48 @@ static void process_payloads(private_ike_init_t *this, message_t *message)
 								ke_payload->get_key_exchange_data(ke_payload));
 		}
 	}
+	if (qske_payload && this->proposal && !this->dh_failed)
+	{
+		/* QSKE is either exchanged here or in a separate IKE_INTERMEDIATE
+		 * exchange */
+		if (this->proposal->has_transform(this->proposal, QSKE_MECHANISM,
+										  this->qske_mechanism))
+		{
+			process_qske_payload(this, qske_payload);
+		}
+	}
 }
 
-METHOD(task_t, build_i, status_t,
-	private_ike_init_t *this, message_t *message)
+/**
+ * Get the previously selected algorithm of a specific type
+ */
+static uint16_t get_previous_algorithm(private_ike_init_t *this,
+									   transform_type_t type)
 {
-	ike_cfg_t *ike_cfg;
+	proposal_t *proposal;
+	uint16_t alg;
 
-	ike_cfg = this->ike_sa->get_ike_cfg(this->ike_sa);
-
-	DBG0(DBG_IKE, "initiating IKE_SA %s[%d] to %H",
-		 this->ike_sa->get_name(this->ike_sa),
-		 this->ike_sa->get_unique_id(this->ike_sa),
-		 this->ike_sa->get_other_host(this->ike_sa));
-	this->ike_sa->set_state(this->ike_sa, IKE_CONNECTING);
-
-	if (this->retry >= MAX_RETRIES)
+	proposal = this->old_sa->get_proposal(this->old_sa);
+	if (proposal->get_algorithm(proposal, type, &alg, NULL))
 	{
-		DBG1(DBG_IKE, "giving up after %d retries", MAX_RETRIES);
-		return FAILED;
+		return alg;
 	}
+	return 0;
+}
 
-	/* if we are retrying after an INVALID_KE_PAYLOAD we already have one */
+/**
+ * Prepare DH implementation as initiator
+ */
+static bool prepare_dh(private_ike_init_t *this, ike_cfg_t *ike_cfg)
+{
 	if (!this->dh)
 	{
-		if (this->old_sa && lib->settings->get_bool(lib->settings,
+		if (this->old_sa &&
+			lib->settings->get_bool(lib->settings,
 								"%s.prefer_previous_dh_group", TRUE, lib->ns))
 		{	/* reuse the DH group we used for the old IKE_SA when rekeying */
-			proposal_t *proposal;
-			uint16_t dh_group;
-
-			proposal = this->old_sa->get_proposal(this->old_sa);
-			if (proposal->get_algorithm(proposal, DIFFIE_HELLMAN_GROUP,
-										&dh_group, NULL))
-			{
-				this->dh_group = dh_group;
-			}
-			else
+			this->dh_group = get_previous_algorithm(this, DIFFIE_HELLMAN_GROUP);
+			if (!this->dh_group)
 			{	/* this shouldn't happen, but let's be safe */
 				this->dh_group = ike_cfg->get_algorithm(ike_cfg,
 														DIFFIE_HELLMAN_GROUP);
@@ -682,7 +791,7 @@ METHOD(task_t, build_i, status_t,
 		{
 			DBG1(DBG_IKE, "configured DH group %N not supported",
 				diffie_hellman_group_names, this->dh_group);
-			return FAILED;
+			return FALSE;
 		}
 	}
 	else if (this->dh->get_dh_group(this->dh) != this->dh_group)
@@ -694,8 +803,111 @@ METHOD(task_t, build_i, status_t,
 		{
 			DBG1(DBG_IKE, "requested DH group %N not supported",
 				 diffie_hellman_group_names, this->dh_group);
-			return FAILED;
+			return FALSE;
 		}
+	}
+	return TRUE;
+}
+
+/**
+ * Prepare QSKE implementation as initiator
+ */
+static bool prepare_qske(private_ike_init_t *this, ike_cfg_t *ike_cfg)
+{
+	if (!this->qske)
+	{
+		this->qske_mechanism = ike_cfg->get_algorithm(ike_cfg, QSKE_MECHANISM);
+		if (!this->qske_mechanism)
+		{	/* no QSKE proposed */
+			return TRUE;
+		}
+
+		if (this->old_sa &&
+			lib->settings->get_bool(lib->settings,
+							"%s.prefer_previous_qske_mechanism", TRUE, lib->ns))
+		{	/* reuse the mechanism we used for the old IKE_SA when rekeying */
+			this->qske_mechanism = get_previous_algorithm(this, QSKE_MECHANISM);
+		}
+
+		if (this->old_sa ||
+			lib->settings->get_bool(lib->settings,
+							"%s.send_qske_in_ike_sa_init", FALSE, lib->ns))
+		{	/* only when rekeying or configured we send everything in one
+			 * message and need a QSKE instance now */
+			this->qske = this->keymat->create_qske(this->keymat,
+												   this->qske_mechanism);
+			if (!this->qske)
+			{
+				DBG1(DBG_IKE, "configured QSKE mechanism %N not supported",
+					 qske_mechanism_names, this->qske_mechanism);
+				return FALSE;
+			}
+		}
+	}
+	else if (this->qske->get_qske_mechanism(this->qske) != this->qske_mechanism)
+	{	/* peer requested a different mechanism (INVALID_QSKE_PAYLOAD) */
+		this->qske->destroy(this->qske);
+		this->qske = this->keymat->create_qske(this->keymat,
+											   this->qske_mechanism);
+		if (!this->qske)
+		{
+			DBG1(DBG_IKE, "requested QSKE mechanism %N not supported",
+				 qske_mechanism_names, this->qske_mechanism);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+METHOD(task_t, build_i_intermediate, status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	qske_payload_t *qske;
+
+	message->set_exchange_type(message, IKE_INTERMEDIATE);
+	this->qske = this->keymat->create_qske(this->keymat,
+										   this->qske_mechanism);
+	if (!this->qske)
+	{
+		DBG1(DBG_IKE, "negotiated QSKE mechanism %N not supported",
+			 qske_mechanism_names, this->qske_mechanism);
+		return FAILED;
+	}
+	qske = qske_payload_create_from_qske(this->qske, TRUE);
+	if (!qske)
+	{
+		return FAILED;
+	}
+	message->add_payload(message, (payload_t*)qske);
+	return NEED_MORE;
+}
+
+METHOD(task_t, build_i, status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	ike_cfg_t *ike_cfg;
+
+	ike_cfg = this->ike_sa->get_ike_cfg(this->ike_sa);
+	DBG0(DBG_IKE, "initiating IKE_SA %s[%d] to %H",
+		 this->ike_sa->get_name(this->ike_sa),
+		 this->ike_sa->get_unique_id(this->ike_sa),
+		 this->ike_sa->get_other_host(this->ike_sa));
+	this->ike_sa->set_state(this->ike_sa, IKE_CONNECTING);
+
+	if (this->retry >= MAX_RETRIES)
+	{
+		DBG1(DBG_IKE, "giving up after %d retries", MAX_RETRIES);
+		return FAILED;
+	}
+
+	if (!prepare_dh(this, ike_cfg))
+	{
+		return FAILED;
+	}
+
+	if (!prepare_qske(this, ike_cfg))
+	{
+		return FAILED;
 	}
 
 	/* generate nonce only when we are trying the first time */
@@ -727,6 +939,26 @@ METHOD(task_t, build_i, status_t,
 	}
 #endif /* ME */
 
+	return NEED_MORE;
+}
+
+METHOD(task_t, process_r_intermediate,  status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	qske_payload_t *qske;
+
+	if (message->get_exchange_type(message) == IKE_INTERMEDIATE)
+	{
+		qske = (qske_payload_t*)message->get_payload(message, PLV2_QSKE);
+		if (qske)
+		{
+			process_qske_payload_intermediate(this, qske);
+		}
+		else
+		{
+			DBG1(DBG_IKE, "QSKE payload missing in message");
+		}
+	}
 	return NEED_MORE;
 }
 
@@ -762,8 +994,8 @@ METHOD(task_t, process_r,  status_t,
 /**
  * Derive the keymat for the IKE_SA
  */
-static bool derive_keys(private_ike_init_t *this,
-						chunk_t nonce_i, chunk_t nonce_r)
+static bool derive_keys(private_ike_init_t *this, chunk_t nonce_i,
+						chunk_t nonce_r)
 {
 	keymat_v2_t *old_keymat;
 	pseudo_random_function_t prf_alg = PRF_UNDEFINED;
@@ -773,25 +1005,134 @@ static bool derive_keys(private_ike_init_t *this,
 	id = this->ike_sa->get_id(this->ike_sa);
 	if (this->old_sa)
 	{
-		/* rekeying: Include old SKd, use old PRF, apply SPI */
-		old_keymat = (keymat_v2_t*)this->old_sa->get_keymat(this->old_sa);
-		prf_alg = old_keymat->get_skd(old_keymat, &skd);
 		if (this->initiator)
 		{
-			id->set_responder_spi(id, this->proposal->get_spi(this->proposal));
+			id->set_responder_spi(id,
+								  this->proposal->get_spi(this->proposal));
 		}
 		else
 		{
-			id->set_initiator_spi(id, this->proposal->get_spi(this->proposal));
+			id->set_initiator_spi(id,
+								  this->proposal->get_spi(this->proposal));
 		}
+		old_keymat = (keymat_v2_t*)this->old_sa->get_keymat(this->old_sa);
+		prf_alg = old_keymat->get_skd(old_keymat, &skd);
 	}
-	if (!this->keymat->derive_ike_keys(this->keymat, this->proposal, this->dh,
-									NULL, nonce_i, nonce_r, id, prf_alg, skd))
+	if (!this->keymat->derive_ike_keys(this->keymat, this->proposal,
+									   this->dh, this->qske, nonce_i, nonce_r,
+									   id, prf_alg, skd))
 	{
 		return FALSE;
 	}
+	/* FIXME: probably should also pass QSKE implementation here */
 	charon->bus->ike_keys(charon->bus, this->ike_sa, this->dh, chunk_empty,
 						  nonce_i, nonce_r, this->old_sa, NULL, AUTH_NONE);
+	return TRUE;
+}
+
+METHOD(task_t, post_build_r, status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	if (!derive_keys(this, this->other_nonce, this->my_nonce))
+	{
+		DBG1(DBG_IKE, "QSKE key derivation failed");
+		return FAILED;
+	}
+	return SUCCESS;
+}
+
+METHOD(task_t, build_r_intermediate, status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	qske_payload_t *qske;
+
+	if (!this->qske)
+	{
+		message->add_notify(message, FALSE, INVALID_SYNTAX, chunk_empty);
+		return FAILED;
+	}
+	if (this->qske_failed)
+	{
+		message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		return FAILED;
+	}
+
+	qske = qske_payload_create_from_qske(this->qske, FALSE);
+	if (!qske)
+	{
+		DBG1(DBG_IKE, "failed to create QSKE payload");
+		message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		return FAILED;
+	}
+	message->add_payload(message, (payload_t*)qske);
+	/* we do the key derivation in post_build(), otherwise the response
+	 * would already be generated using the new keys */
+	this->public.task.post_build = _post_build_r;
+	return NEED_MORE;
+}
+
+/**
+ * Check if the proposed DH group is usable as responder
+ */
+static bool check_dh_group(private_ike_init_t *this, message_t *message)
+{
+	uint16_t alg;
+
+	if (!this->dh ||
+		!this->proposal->has_transform(this->proposal, DIFFIE_HELLMAN_GROUP,
+									   this->dh_group))
+	{
+		if (this->proposal->get_algorithm(this->proposal, DIFFIE_HELLMAN_GROUP,
+										  &alg, NULL) &&
+			this->dh_group != alg)
+		{
+			DBG1(DBG_IKE, "DH group %N unacceptable, requesting %N",
+				 diffie_hellman_group_names, this->dh_group,
+				 diffie_hellman_group_names, alg);
+			this->dh_group = alg;
+			alg = htons(alg);
+			message->add_notify(message, FALSE, INVALID_KE_PAYLOAD,
+								chunk_from_thing(alg));
+		}
+		else
+		{
+			DBG1(DBG_IKE, "no acceptable proposal found");
+			message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		}
+		return FALSE;
+	}
+	return TRUE;
+}
+
+/**
+ * Check if the proposed QSKE mechanism is usable as responder
+ */
+static bool check_qske_mechanism(private_ike_init_t *this, message_t *message)
+{
+	uint16_t alg;
+
+	if (this->qske_mechanism && !this->qske)
+	{
+		if (this->proposal->get_algorithm(this->proposal, QSKE_MECHANISM,
+										  &alg, NULL) &&
+			this->qske_mechanism != alg)
+		{
+			DBG1(DBG_IKE, "QSKE mechanism %N unacceptable, requesting %N",
+				 qske_mechanism_names, this->qske_mechanism,
+				 qske_mechanism_names, alg);
+			this->qske_mechanism = alg;
+			alg = htons(alg);
+			message->add_notify(message, FALSE, INVALID_QSKE_PAYLOAD,
+								chunk_from_thing(alg));
+		}
+		else
+		{
+			DBG1(DBG_IKE, "no acceptable QSKE mechanism found");
+			message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN,
+								chunk_empty);
+		}
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -799,6 +1140,7 @@ METHOD(task_t, build_r, status_t,
 	private_ike_init_t *this, message_t *message)
 {
 	identification_t *gateway;
+	uint16_t alg;
 
 	/* check if we have everything we need */
 	if (this->proposal == NULL ||
@@ -825,34 +1167,27 @@ METHOD(task_t, build_r, status_t,
 		return FAILED;
 	}
 
-	if (this->dh == NULL ||
-		!this->proposal->has_transform(this->proposal, DIFFIE_HELLMAN_GROUP,
-									   this->dh_group))
+	if (!check_dh_group(this, message))
 	{
-		uint16_t group;
+		/* also add an INVALID_QSKE_PAYLOAD notify if necessary */
+		check_qske_mechanism(this, message);
+		return FAILED;
+	}
 
-		if (this->proposal->get_algorithm(this->proposal, DIFFIE_HELLMAN_GROUP,
-										  &group, NULL))
-		{
-			DBG1(DBG_IKE, "DH group %N unacceptable, requesting %N",
-				 diffie_hellman_group_names, this->dh_group,
-				 diffie_hellman_group_names, group);
-			this->dh_group = group;
-			group = htons(group);
-			message->add_notify(message, FALSE, INVALID_KE_PAYLOAD,
-								chunk_from_thing(group));
-		}
-		else
-		{
-			DBG1(DBG_IKE, "no acceptable proposal found");
-			message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
-		}
+	if (!check_qske_mechanism(this, message))
+	{
 		return FAILED;
 	}
 
 	if (this->dh_failed)
 	{
 		DBG1(DBG_IKE, "applying DH public value failed");
+		message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		return FAILED;
+	}
+
+	if (this->qske_failed)
+	{
 		message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
 		return FAILED;
 	}
@@ -867,6 +1202,22 @@ METHOD(task_t, build_r, status_t,
 	{
 		message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
 		return FAILED;
+	}
+	if (!this->qske &&
+		this->proposal->get_algorithm(this->proposal, QSKE_MECHANISM,
+									  &alg, NULL))
+	{	/* use IKE_INTERMEDIATE to exchange QSKE payloads, unless we are
+		 * rekeying */
+		if (this->old_sa)
+		{
+			DBG1(DBG_IKE, "missing QSKE payload during rekeying");
+			message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
+			return FAILED;
+		}
+		this->qske_mechanism = alg;
+		this->public.task.build = _build_r_intermediate;
+		this->public.task.process = _process_r_intermediate;
+		return NEED_MORE;
 	}
 	return SUCCESS;
 }
@@ -954,11 +1305,104 @@ METHOD(task_t, pre_process_i, status_t,
 	return SUCCESS;
 }
 
+METHOD(task_t, post_process_i, status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	if (!derive_keys(this, this->my_nonce, this->other_nonce))
+	{
+		DBG1(DBG_IKE, "QSKE key derivation failed");
+		return FAILED;
+	}
+	return SUCCESS;
+}
+
+METHOD(task_t, process_i_intermediate, status_t,
+	private_ike_init_t *this, message_t *message)
+{
+	qske_payload_t *qske;
+
+	qske = (qske_payload_t*)message->get_payload(message, PLV2_QSKE);
+	if (qske)
+	{
+		process_qske_payload_intermediate(this, qske);
+	}
+	else
+	{
+		DBG1(DBG_IKE, "QSKE payload missing in message");
+		return FAILED;
+	}
+	if (this->qske_failed)
+	{
+		return FAILED;
+	}
+	/* we do the key derivation in post_process(), otherwise calculating IntAuth
+	 * would be done with the wrong keys */
+	this->public.task.post_process = _post_process_i;
+	return NEED_MORE;
+}
+
+/**
+ * Handle an INVALID_KE_PAYLOAD notify, look for one if none given
+ */
+static void handle_invalid_ke(private_ike_init_t *this, message_t *message,
+							  notify_payload_t *notify)
+{
+	diffie_hellman_group_t bad_group;
+	chunk_t data;
+
+	if (!notify || notify->get_notify_type(notify) != INVALID_KE_PAYLOAD)
+	{
+		notify = message->get_notify(message, INVALID_KE_PAYLOAD);
+		if (!notify)
+		{
+			return;
+		}
+	}
+	bad_group = this->dh_group;
+	data = notify->get_notification_data(notify);
+	if (data.len == sizeof(uint16_t))
+	{
+		this->dh_group = untoh16(data.ptr);
+	}
+	DBG1(DBG_IKE, "peer didn't accept DH group %N, "
+		 "it requested %N", diffie_hellman_group_names,
+		 bad_group, diffie_hellman_group_names, this->dh_group);
+}
+
+/**
+ * Handle an INVALID_QSKE_PAYLOAD notify, look for one if none given
+ */
+static void handle_invalid_qske(private_ike_init_t *this, message_t *message,
+								notify_payload_t *notify)
+{
+	qske_mechanism_t bad_mechanism;
+	chunk_t data;
+
+	if (!notify || notify->get_notify_type(notify) != INVALID_QSKE_PAYLOAD)
+	{
+		notify = message->get_notify(message, INVALID_QSKE_PAYLOAD);
+		if (!notify)
+		{
+			return;
+		}
+	}
+	bad_mechanism = this->qske_mechanism;
+	data = notify->get_notification_data(notify);
+	if (data.len == sizeof(uint16_t))
+	{
+		this->qske_mechanism = untoh16(data.ptr);
+	}
+	DBG1(DBG_IKE, "peer didn't accept QSKE mechanism %N, "
+		 "it requested %N", qske_mechanism_names,
+		 bad_mechanism, qske_mechanism_names, this->qske_mechanism);
+}
+
 METHOD(task_t, process_i, status_t,
 	private_ike_init_t *this, message_t *message)
 {
 	enumerator_t *enumerator;
 	payload_t *payload;
+	uint16_t alg;
 
 	/* check for erroneous notifies */
 	enumerator = message->create_payload_enumerator(message);
@@ -972,22 +1416,16 @@ METHOD(task_t, process_i, status_t,
 			switch (type)
 			{
 				case INVALID_KE_PAYLOAD:
+				case INVALID_QSKE_PAYLOAD:
 				{
-					chunk_t data;
-					diffie_hellman_group_t bad_group;
+					/* check for both notifies */
+					handle_invalid_ke(this, message, notify);
+					handle_invalid_qske(this, message, notify);
 
-					bad_group = this->dh_group;
-					data = notify->get_notification_data(notify);
-					this->dh_group = ntohs(*((uint16_t*)data.ptr));
-					DBG1(DBG_IKE, "peer didn't accept DH group %N, "
-						 "it requested %N", diffie_hellman_group_names,
-						 bad_group, diffie_hellman_group_names, this->dh_group);
-
-					if (this->old_sa == NULL)
+					if (!this->old_sa)
 					{	/* reset the IKE_SA if we are not rekeying */
 						this->ike_sa->reset(this->ike_sa, FALSE);
 					}
-
 					enumerator->destroy(enumerator);
 					this->retry++;
 					return NEED_MORE;
@@ -1057,15 +1495,14 @@ METHOD(task_t, process_i, status_t,
 	if (this->proposal == NULL ||
 		this->other_nonce.len == 0 || this->my_nonce.len == 0)
 	{
-		DBG1(DBG_IKE, "peers proposal selection invalid");
+		DBG1(DBG_IKE, "peer's proposal selection invalid");
 		return FAILED;
 	}
 
-	if (this->dh == NULL ||
-		!this->proposal->has_transform(this->proposal, DIFFIE_HELLMAN_GROUP,
+	if (!this->proposal->has_transform(this->proposal, DIFFIE_HELLMAN_GROUP,
 									   this->dh_group))
 	{
-		DBG1(DBG_IKE, "peer DH group selection invalid");
+		DBG1(DBG_IKE, "peer's DH group selection invalid");
 		return FAILED;
 	}
 
@@ -1075,10 +1512,33 @@ METHOD(task_t, process_i, status_t,
 		return FAILED;
 	}
 
+	if (this->qske &&
+		!this->proposal->has_transform(this->proposal, QSKE_MECHANISM,
+									   this->qske_mechanism))
+	{
+		DBG1(DBG_IKE, "peer's QSKE mechanism selection invalid");
+		return FAILED;
+	}
+
+	if (this->qske_failed)
+	{
+		return FAILED;
+	}
+
 	if (!derive_keys(this, this->my_nonce, this->other_nonce))
 	{
 		DBG1(DBG_IKE, "key derivation failed");
 		return FAILED;
+	}
+
+	if (!this->qske &&
+		this->proposal->get_algorithm(this->proposal, QSKE_MECHANISM,
+									  &alg, NULL))
+	{	/* use IKE_INTERMEDIATE to exchange QSKE payloads */
+		this->qske_mechanism = alg;
+		this->public.task.build = _build_i_intermediate;
+		this->public.task.process = _process_i_intermediate;
+		return NEED_MORE;
 	}
 	return SUCCESS;
 }
@@ -1099,12 +1559,14 @@ METHOD(task_t, migrate, void,
 	this->keymat = (keymat_v2_t*)ike_sa->get_keymat(ike_sa);
 	this->proposal = NULL;
 	this->dh_failed = FALSE;
+	this->qske_failed = FALSE;
 }
 
 METHOD(task_t, destroy, void,
 	private_ike_init_t *this)
 {
 	DESTROY_IF(this->dh);
+	DESTROY_IF(this->qske);
 	DESTROY_IF(this->proposal);
 	DESTROY_IF(this->nonceg);
 	chunk_free(&this->my_nonce);
