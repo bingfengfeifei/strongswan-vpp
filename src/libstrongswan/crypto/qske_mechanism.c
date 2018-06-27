@@ -15,7 +15,7 @@
 
 #include "qske_mechanism.h"
 
-ENUM(qske_mechanism_names, QSKE_NONE, QSKE_FRODO,
+ENUM(qske_mechanism_names, QSKE_NONE, QSKE_LIMA_SP_L5,
 	"QSKE_NONE",
 	"QSKE_NEWHOPE",
 	"QSKE_NEWHOPE_L1",

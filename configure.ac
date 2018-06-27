@@ -144,6 +144,7 @@ ARG_DISBL_SET([md5],            [disable MD5 software implementation plugin.])
 ARG_ENABL_SET([mgf1],           [enable the MGF1 software implementation plugin.])
 ARG_ENABL_SET([newhope],        [enable NewHope crypto plugin.])
 ARG_ENABL_SET([qske-newhope],   [enable NewHope QSKE plugin.])
+ARG_ENABL_SET([oqs],            [enable Open Quantum Safe (liboqs) plugin.])
 ARG_DISBL_SET([nonce],          [disable nonce generation plugin.])
 ARG_ENABL_SET([ntru],           [enables the NTRU crypto plugin.])
 ARG_ENABL_SET([openssl],        [enables the OpenSSL crypto plugin.])
@@ -1167,6 +1168,14 @@ if test x$botan = xtrue; then
 	AC_SUBST(botan_LIBS)
 fi
 
+if test x$oqs = xtrue; then
+	saved_LIBS=$LIBS
+	LIBS="-lm"
+	AC_CHECK_LIB([oqs],[_init],,[AC_MSG_ERROR([Open Quantum-Safe library oqs not found])],[])
+	LIBS=$saved_LIBS
+	AC_CHECK_HEADER([oqs/oqs.h],,[AC_MSG_ERROR([Open Quantum-Safe header oqs/oqs.h not found!])])
+fi
+
 if test x$uci = xtrue; then
 	AC_CHECK_LIB([uci],[uci_alloc_context],[LIBS="$LIBS"],[AC_MSG_ERROR([UCI library libuci not found])],[])
 	AC_CHECK_HEADER([uci.h],,[AC_MSG_ERROR([UCI header uci.h not found!])])
@@ -1447,6 +1456,7 @@ ADD_PLUGIN([ntru],                 [s charon scripts nm cmd])
 ADD_PLUGIN([drbg],                 [s charon pki scripts nm cmd])
 ADD_PLUGIN([newhope],              [s charon scripts nm cmd])
 ADD_PLUGIN([qske-newhope],         [s charon scripts nm cmd])
+ADD_PLUGIN([oqs],                  [s charon scripts nm cmd])
 ADD_PLUGIN([bliss],                [s charon pki scripts nm cmd])
 ADD_PLUGIN([curl],                 [s charon scepclient pki scripts nm cmd])
 ADD_PLUGIN([files],                [s charon scepclient pki scripts nm cmd])
@@ -1615,6 +1625,7 @@ AM_CONDITIONAL(USE_AF_ALG, test x$af_alg = xtrue)
 AM_CONDITIONAL(USE_NTRU, test x$ntru = xtrue)
 AM_CONDITIONAL(USE_NEWHOPE, test x$newhope = xtrue)
 AM_CONDITIONAL(USE_QSKE_NEWHOPE, test x$qske_newhope = xtrue)
+AM_CONDITIONAL(USE_OQS, test x$oqs = xtrue)
 AM_CONDITIONAL(USE_BLISS, test x$bliss = xtrue)
 AM_CONDITIONAL(USE_DRBG, test x$drbg = xtrue)
 
@@ -1901,6 +1912,7 @@ AC_CONFIG_FILES([
 	src/libstrongswan/plugins/newhope/tests/Makefile
 	src/libstrongswan/plugins/qske_newhope/Makefile
 	src/libstrongswan/plugins/qske_newhope/tests/Makefile
+	src/libstrongswan/plugins/oqs/Makefile
 	src/libstrongswan/plugins/test_vectors/Makefile
 	src/libstrongswan/tests/Makefile
 	src/libipsec/Makefile
