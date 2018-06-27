@@ -186,6 +186,8 @@ all|coverage|sonarcloud)
 			--disable-soup --disable-unwind-backtraces
 			--disable-svc --disable-dbghelp-backtraces --disable-socket-win
 			--disable-kernel-wfp --disable-kernel-iph --disable-winhttp"
+	# liboqs would have to be installed manually
+	CONFIG="$CONFIG --disable-oqs"	
 	# not enabled on the build server
 	CONFIG="$CONFIG --disable-af-alg"
 	if test "$TEST" != "coverage"; then
