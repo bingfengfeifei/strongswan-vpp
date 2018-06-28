@@ -782,7 +782,7 @@ static bool derive_keys(private_ike_init_t *this,
 		}
 	}
 	if (!this->keymat->derive_ike_keys(this->keymat, this->proposal, this->dh,
-									   nonce_i, nonce_r, id, prf_alg, skd))
+									NULL, nonce_i, nonce_r, id, prf_alg, skd))
 	{
 		return FALSE;
 	}

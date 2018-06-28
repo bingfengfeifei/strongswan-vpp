@@ -55,7 +55,8 @@ START_TEST(test_derive_ike_keys)
 	ck_assert(dh->dh.set_other_public_value(&dh->dh, pubvalue));
 
 	fail_unless(keymat->keymat_v2.derive_ike_keys(&keymat->keymat_v2, proposal,
-				&dh->dh, nonce, nonce, ike_sa_id, PRF_UNDEFINED, chunk_empty),
+				&dh->dh, NULL, nonce, nonce, ike_sa_id, PRF_UNDEFINED,
+				chunk_empty),
 				"Key derivation failed");
 	chunk_free(&nonce);
 
