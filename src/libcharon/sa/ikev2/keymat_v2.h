@@ -53,8 +53,11 @@ struct keymat_v2_t {
 	 * These keys are not handed out, but are used by the associated signers,
 	 * crypters and authentication functions.
 	 *
+	 * If qske is given, its secret is appended to the DH secret.
+	 *
 	 * @param proposal	selected algorithms
 	 * @param dh		diffie hellman key allocated by create_dh()
+	 * @param qske		optional QSKE implementation allocated by create_qske()
 	 * @param nonce_i	initiators nonce value
 	 * @param nonce_r	responders nonce value
 	 * @param id		IKE_SA identifier
@@ -63,7 +66,7 @@ struct keymat_v2_t {
 	 * @return			TRUE on success
 	 */
 	bool (*derive_ike_keys)(keymat_v2_t *this, proposal_t *proposal,
-							diffie_hellman_t *dh, chunk_t nonce_i,
+							diffie_hellman_t *dh, qske_t *qske, chunk_t nonce_i,
 							chunk_t nonce_r, ike_sa_id_t *id,
 							pseudo_random_function_t rekey_function,
 							chunk_t rekey_skd);

@@ -184,7 +184,7 @@ METHOD(keymat_t, create_nonce_gen, nonce_gen_t*,
 
 METHOD(keymat_v2_t, derive_ike_keys, bool,
 	private_tkm_keymat_t *this, proposal_t *proposal, diffie_hellman_t *dh,
-	chunk_t nonce_i, chunk_t nonce_r, ike_sa_id_t *id,
+	qske_t *qske, chunk_t nonce_i, chunk_t nonce_r, ike_sa_id_t *id,
 	pseudo_random_function_t rekey_function, chunk_t rekey_skd)
 {
 	uint16_t enc_alg, int_alg, key_size;

@@ -306,11 +306,11 @@ failure:
 
 METHOD(keymat_v2_t, derive_ike_keys, bool,
 	private_keymat_v2_t *this, proposal_t *proposal, diffie_hellman_t *dh,
-	chunk_t nonce_i, chunk_t nonce_r, ike_sa_id_t *id,
+	qske_t *qske, chunk_t nonce_i, chunk_t nonce_r, ike_sa_id_t *id,
 	pseudo_random_function_t rekey_function, chunk_t rekey_skd)
 {
 	chunk_t skeyseed = chunk_empty, key, secret, full_nonce, fixed_nonce;
-	chunk_t prf_plus_seed, spi_i, spi_r;
+	chunk_t qske_secret, prf_plus_seed, spi_i, spi_r;
 	prf_plus_t *prf_plus = NULL;
 	uint16_t alg, key_size, int_alg;
 	prf_t *rekey_prf = NULL;
@@ -318,31 +318,41 @@ METHOD(keymat_v2_t, derive_ike_keys, bool,
 	spi_i = chunk_alloca(sizeof(uint64_t));
 	spi_r = chunk_alloca(sizeof(uint64_t));
 
-	if (!dh->get_shared_secret(dh, &secret))
-	{
-		return FALSE;
-	}
-
 	/* Create SAs general purpose PRF first, we may use it here */
 	if (!proposal->get_algorithm(proposal, PSEUDO_RANDOM_FUNCTION, &alg, NULL))
 	{
 		DBG1(DBG_IKE, "no %N selected",
 			 transform_type_names, PSEUDO_RANDOM_FUNCTION);
-		chunk_clear(&secret);
 		return FALSE;
 	}
 	this->prf_alg = alg;
 	DESTROY_IF(this->prf);
 	this->prf = lib->crypto->create_prf(lib->crypto, alg);
-	if (this->prf == NULL)
+	if (!this->prf)
 	{
 		DBG1(DBG_IKE, "%N %N not supported!",
 			 transform_type_names, PSEUDO_RANDOM_FUNCTION,
 			 pseudo_random_function_names, alg);
-		chunk_clear(&secret);
 		return FALSE;
 	}
-	DBG4(DBG_IKE, "shared Diffie Hellman secret %B", &secret);
+
+	if (!dh->get_shared_secret(dh, &secret))
+	{
+		return FALSE;
+	}
+	DBG4(DBG_IKE, "DH secret %B", &secret);
+
+	if (qske)
+	{
+		if (!qske->get_shared_secret(qske, &qske_secret))
+		{
+			chunk_clear(&secret);
+			return FALSE;
+		}
+		DBG4(DBG_IKE, "QSKE secret %B", &qske_secret);
+		secret = chunk_cat("ss", secret, qske_secret);
+	}
+
 	/* full nonce is used as seed for PRF+ ... */
 	full_nonce = chunk_cat("cc", nonce_i, nonce_r);
 	/* but the PRF may need a fixed key which only uses the first bytes of
