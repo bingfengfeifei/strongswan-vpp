@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Tobias Brunner
+ * Copyright (C) 2015-2018 Tobias Brunner
  * Copyright (C) 2008 Martin Willi
  * HSR Hochschule fuer Technik Rapperswil
  *
@@ -88,6 +88,12 @@ METHOD(keymat_t, create_dh, diffie_hellman_t*,
 	private_keymat_v2_t *this, diffie_hellman_group_t group)
 {
 	return lib->crypto->create_dh(lib->crypto, group);
+}
+
+METHOD(keymat_v2_t, create_qske, qske_t*,
+	private_keymat_v2_t *this, qske_mechanism_t mechanism)
+{
+	return lib->crypto->create_qske(lib->crypto, mechanism);
 }
 
 METHOD(keymat_t, create_nonce_gen, nonce_gen_t*,
@@ -862,6 +868,7 @@ keymat_v2_t *keymat_v2_create(bool initiator)
 				.get_aead = _get_aead,
 				.destroy = _destroy,
 			},
+			.create_qske = _create_qske,
 			.derive_ike_keys = _derive_ike_keys,
 			.derive_ike_keys_ppk = _derive_ike_keys_ppk,
 			.derive_child_keys = _derive_child_keys,

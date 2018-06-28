@@ -522,6 +522,7 @@ tkm_keymat_t *tkm_keymat_create(bool initiator)
 					.get_aead = _get_aead,
 					.destroy = _destroy,
 				},
+				.create_qske = (void*)return_null,
 				.derive_ike_keys = _derive_ike_keys,
 				.derive_ike_keys_ppk = (void*)return_false,
 				.derive_child_keys = _derive_child_keys,

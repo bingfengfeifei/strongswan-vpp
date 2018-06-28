@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Tobias Brunner
+ * Copyright (C) 2011-2018 Tobias Brunner
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -35,6 +35,17 @@ struct keymat_v2_t {
 	 * Implements keymat_t.
 	 */
 	keymat_t keymat;
+
+	/**
+	 * Create a QSKE object.
+	 *
+	 * Only QSKE objects allocated through this method are passed to other
+	 * keymat_t methods, allowing private QSKE implementations.
+	 *
+	 * @param mechanism	QSKE mechanism
+	 * @return			QSKE object, NULL if mechanism not supported
+	 */
+	qske_t* (*create_qske)(keymat_v2_t *this, qske_mechanism_t mechanism);
 
 	/**
 	 * Derive keys for the IKE_SA.
@@ -90,6 +101,7 @@ struct keymat_v2_t {
 							  chunk_t nonce_i, chunk_t nonce_r,
 							  chunk_t *encr_i, chunk_t *integ_i,
 							  chunk_t *encr_r, chunk_t *integ_r);
+
 	/**
 	 * Get SKd to pass to derive_ikey_keys() during rekeying.
 	 *
