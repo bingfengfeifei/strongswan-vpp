@@ -39,7 +39,7 @@ START_TEST(test_newhope_ke_good)
 		ck_assert(i_nh->get_dh_group(i_nh) == NH_128_BIT);
 
 		ck_assert(i_nh->get_my_public_value(i_nh, &i_msg));
-		ck_assert(i_msg.len = 1824);
+		ck_assert(i_msg.len == 1824);
 
 		r_nh = lib->crypto->create_dh(lib->crypto, NH_128_BIT);
 		ck_assert(r_nh != NULL);
