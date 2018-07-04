@@ -708,3 +708,7 @@ endif
 if USE_QSKE_NEWHOPE
   SUBDIRS += plugins/qske_newhope/tests
 endif
+
+if USE_OQS
+  SUBDIRS += plugins/oqs/tests
+endif

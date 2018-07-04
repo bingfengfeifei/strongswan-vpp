@@ -1901,6 +1901,7 @@ AC_CONFIG_FILES([
 	src/libstrongswan/plugins/qske_newhope/Makefile
 	src/libstrongswan/plugins/qske_newhope/tests/Makefile
 	src/libstrongswan/plugins/oqs/Makefile
+	src/libstrongswan/plugins/oqs/tests/Makefile
 	src/libstrongswan/plugins/test_vectors/Makefile
 	src/libstrongswan/tests/Makefile
 	src/libipsec/Makefile
