@@ -187,39 +187,136 @@ START_TEST(test_matches)
 }
 END_TEST
 
-START_TEST(test_promote_dh_group)
+START_TEST(test_has_transform)
 {
 	proposal_t *proposal;
 
 	proposal = proposal_create_from_string(PROTO_IKE,
 										   "aes128-sha256-modp3072-ecp256");
-	ck_assert(proposal->promote_dh_group(proposal, ECP_256_BIT));
+	ck_assert(proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									  MODP_3072_BIT));
+	ck_assert(proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									  ECP_256_BIT));
+	ck_assert(!proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									   MODP_2048_BIT));
+	proposal->destroy(proposal);
+}
+END_TEST
+
+START_TEST(test_has_transform_none)
+{
+	proposal_t *proposal;
+
+	proposal = proposal_create_from_string(PROTO_ESP,
+										   "aes128-sha256");
+	ck_assert(proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									  MODP_NONE));
+	proposal->destroy(proposal);
+
+	proposal = proposal_create_from_string(PROTO_ESP,
+										   "aes128-sha256-modp3072");
+	ck_assert(!proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									   MODP_NONE));
+	proposal->destroy(proposal);
+}
+END_TEST
+
+START_TEST(test_promote_transform)
+{
+	proposal_t *proposal;
+
+	proposal = proposal_create_from_string(PROTO_IKE,
+										   "aes128-sha256-modp3072-ecp256");
+	ck_assert(proposal->promote_transform(proposal, DIFFIE_HELLMAN_GROUP,
+										  ECP_256_BIT));
 	assert_proposal_eq(proposal, "IKE:AES_CBC_128/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/ECP_256/MODP_3072");
 	proposal->destroy(proposal);
 }
 END_TEST
 
-START_TEST(test_promote_dh_group_already_front)
+START_TEST(test_promote_transform_already_front)
 {
 	proposal_t *proposal;
 
 	proposal = proposal_create_from_string(PROTO_IKE,
 										   "aes128-sha256-modp3072-ecp256");
-	ck_assert(proposal->promote_dh_group(proposal, MODP_3072_BIT));
+	ck_assert(proposal->promote_transform(proposal, DIFFIE_HELLMAN_GROUP,
+										  MODP_3072_BIT));
 	assert_proposal_eq(proposal, "IKE:AES_CBC_128/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/MODP_3072/ECP_256");
 	proposal->destroy(proposal);
 }
 END_TEST
 
-START_TEST(test_promote_dh_group_not_contained)
+START_TEST(test_promote_transform_not_contained)
 {
 	proposal_t *proposal;
 
 	proposal = proposal_create_from_string(PROTO_IKE,
 										   "aes128-sha256-modp3072-ecp256");
 
-	ck_assert(!proposal->promote_dh_group(proposal, MODP_2048_BIT));
+	ck_assert(!proposal->promote_transform(proposal, DIFFIE_HELLMAN_GROUP,
+										   MODP_2048_BIT));
 	assert_proposal_eq(proposal, "IKE:AES_CBC_128/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/MODP_3072/ECP_256");
+	proposal->destroy(proposal);
+}
+END_TEST
+
+START_TEST(test_promote_transform_qske)
+{
+	proposal_t *proposal;
+
+	proposal = proposal_create_from_string(PROTO_IKE,
+										   "aes128-sha256-ecp256-qskenewhope1-qskenewhope5");
+	ck_assert(proposal->promote_transform(proposal, QSKE_MECHANISM,
+										  QSKE_NEWHOPE_L5));
+	assert_proposal_eq(proposal, "IKE:AES_CBC_128/HMAC_SHA2_256_128/PRF_HMAC_SHA2_256/ECP_256/QSKE_NEWHOPE_L5/QSKE_NEWHOPE_L1");
+	proposal->destroy(proposal);
+}
+END_TEST
+
+START_TEST(test_strip_transform)
+{
+	proposal_t *proposal;
+
+	proposal = proposal_create_from_string(PROTO_ESP,
+										   "aes128-sha256-modp3072-ecp256");
+	proposal->strip_transform(proposal, DIFFIE_HELLMAN_GROUP, MODP_NONE);
+	ck_assert(proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									  MODP_NONE));
+	assert_proposal_eq(proposal, "ESP:AES_CBC_128/HMAC_SHA2_256_128/NO_EXT_SEQ");
+	proposal->destroy(proposal);
+}
+END_TEST
+
+START_TEST(test_strip_transform_keep)
+{
+	proposal_t *proposal;
+
+	proposal = proposal_create_from_string(PROTO_ESP,
+										   "aes128-sha256-modp3072-ecp256");
+	proposal->strip_transform(proposal, DIFFIE_HELLMAN_GROUP, MODP_3072_BIT);
+	ck_assert(proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP,
+									  MODP_3072_BIT));
+	assert_proposal_eq(proposal, "ESP:AES_CBC_128/HMAC_SHA2_256_128/MODP_3072/NO_EXT_SEQ");
+	proposal->destroy(proposal);
+}
+END_TEST
+
+START_TEST(test_strip_transform_qske)
+{
+	proposal_t *proposal;
+
+	proposal = proposal_create_from_string(PROTO_ESP,
+										   "aes128-sha256-qskenewhope1-qskenewhope5");
+	proposal->strip_transform(proposal, QSKE_MECHANISM, QSKE_NEWHOPE_L5);
+	ck_assert(proposal->has_transform(proposal, QSKE_MECHANISM,
+									  QSKE_NEWHOPE_L5));
+	proposal->strip_transform(proposal, QSKE_MECHANISM, QSKE_NONE);
+	ck_assert(!proposal->has_transform(proposal, QSKE_MECHANISM,
+									  QSKE_NEWHOPE_L5));
+	ck_assert(proposal->has_transform(proposal, QSKE_MECHANISM,
+									  QSKE_NONE));
+	assert_proposal_eq(proposal, "ESP:AES_CBC_128/HMAC_SHA2_256_128/NO_EXT_SEQ");
 	proposal->destroy(proposal);
 }
 END_TEST
@@ -344,10 +441,22 @@ Suite *proposal_suite_create()
 	tcase_add_loop_test(tc, test_matches, 0, countof(select_data));
 	suite_add_tcase(s, tc);
 
-	tc = tcase_create("promote_dh_group");
-	tcase_add_test(tc, test_promote_dh_group);
-	tcase_add_test(tc, test_promote_dh_group_already_front);
-	tcase_add_test(tc, test_promote_dh_group_not_contained);
+	tc = tcase_create("has_transform");
+	tcase_add_test(tc, test_has_transform);
+	tcase_add_test(tc, test_has_transform_none);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("promote_transform");
+	tcase_add_test(tc, test_promote_transform);
+	tcase_add_test(tc, test_promote_transform_already_front);
+	tcase_add_test(tc, test_promote_transform_not_contained);
+	tcase_add_test(tc, test_promote_transform_qske);
+	suite_add_tcase(s, tc);
+
+	tc = tcase_create("strip_transform");
+	tcase_add_test(tc, test_strip_transform);
+	tcase_add_test(tc, test_strip_transform_keep);
+	tcase_add_test(tc, test_strip_transform_qske);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("unknown transform types");

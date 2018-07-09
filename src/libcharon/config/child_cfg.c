@@ -217,7 +217,7 @@ METHOD(child_cfg_t, get_proposals, linked_list_t*,
 		current = current->clone(current);
 		if (strip_dh)
 		{
-			current->strip_dh(current, MODP_NONE);
+			current->strip_transform(current, DIFFIE_HELLMAN_GROUP, MODP_NONE);
 		}
 		if (proposals->find_first(proposals, match_proposal, NULL, current))
 		{
@@ -256,7 +256,7 @@ METHOD(child_cfg_t, select_proposal, proposal_t*,
 		proposal = proposal->clone(proposal);
 		if (strip_dh)
 		{
-			proposal->strip_dh(proposal, MODP_NONE);
+			proposal->strip_transform(proposal, DIFFIE_HELLMAN_GROUP, MODP_NONE);
 		}
 		if (prefer_self)
 		{
@@ -271,7 +271,7 @@ METHOD(child_cfg_t, select_proposal, proposal_t*,
 			match = match->clone(match);
 			if (strip_dh)
 			{
-				match->strip_dh(match, MODP_NONE);
+				match->strip_transform(match, DIFFIE_HELLMAN_GROUP, MODP_NONE);
 			}
 			selected = proposal->select(proposal, match, prefer_self, private);
 			match->destroy(match);

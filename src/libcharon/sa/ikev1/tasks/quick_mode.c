@@ -796,13 +796,13 @@ static linked_list_t *get_proposals(private_quick_mode_t *this,
 	{
 		if (group != MODP_NONE)
 		{
-			if (!proposal->has_dh_group(proposal, group))
+			if (!proposal->has_transform(proposal, DIFFIE_HELLMAN_GROUP, group))
 			{
 				list->remove_at(list, enumerator);
 				proposal->destroy(proposal);
 				continue;
 			}
-			proposal->strip_dh(proposal, group);
+			proposal->strip_transform(proposal, DIFFIE_HELLMAN_GROUP, group);
 		}
 		proposal->set_spi(proposal, this->spi_i);
 	}
