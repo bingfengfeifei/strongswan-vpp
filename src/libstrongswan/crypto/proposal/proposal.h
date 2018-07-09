@@ -102,28 +102,36 @@ struct proposal_t {
 						   uint16_t *alg, uint16_t *key_size);
 
 	/**
-	 * Check if the proposal has a specific DH group.
+	 * Check if the proposal has a specific transform.
 	 *
-	 * @param group			group to check for
+	 * @param type			kind of algorithm
+	 * @param alg			algorithm to check for (if 0, TRUE is returned if
+	 *						no transform of the given type is found)
 	 * @return				TRUE if algorithm included
 	 */
-	bool (*has_dh_group)(proposal_t *this, diffie_hellman_group_t group);
+	bool (*has_transform)(proposal_t *this, transform_type_t type,
+						  uint16_t alg);
 
 	/**
-	 * Move the given DH group to the front of the list if it was contained in
+	 * Move the given transform to the front of the list if it was contained in
 	 * the proposal.
 	 *
-	 * @param group			group to promote
+	 * @param type			kind of algorithm
+	 * @param alg			algorithm to promote
 	 * @return				TRUE if algorithm included
 	 */
-	bool (*promote_dh_group)(proposal_t *this, diffie_hellman_group_t group);
+	bool (*promote_transform)(proposal_t *this, transform_type_t type,
+							  uint16_t alg);
 
 	/**
-	 * Strip DH groups from proposal to use it without PFS.
+	 * Strip transforms from proposal (e.g. for DH groups to use it without PFS
+	 * or during IKE_AUTH).
 	 *
-	 * @param keep			group to keep (MODP_NONE to remove all)
+	 * @param type			kind of algorithm
+	 * @param keep			algorithm to keep (0 to remove all)
 	 */
-	void (*strip_dh)(proposal_t *this, diffie_hellman_group_t keep);
+	void (*strip_transform)(proposal_t *this, transform_type_t type,
+							uint16_t keep);
 
 	/**
 	 * Compare two proposal, and select a matching subset.

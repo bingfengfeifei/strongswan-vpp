@@ -246,18 +246,18 @@ METHOD(proposal_t, get_algorithm, bool,
 	return found;
 }
 
-METHOD(proposal_t, has_dh_group, bool,
-	private_proposal_t *this, diffie_hellman_group_t group)
+METHOD(proposal_t, has_transform, bool,
+	private_proposal_t *this, transform_type_t type, uint16_t alg)
 {
 	bool found = FALSE, any = FALSE;
 	enumerator_t *enumerator;
 	uint16_t current;
 
-	enumerator = create_enumerator(this, DIFFIE_HELLMAN_GROUP);
+	enumerator = create_enumerator(this, type);
 	while (enumerator->enumerate(enumerator, &current, NULL))
 	{
 		any = TRUE;
-		if (current == group)
+		if (current == alg)
 		{
 			found = TRUE;
 			break;
@@ -265,15 +265,15 @@ METHOD(proposal_t, has_dh_group, bool,
 	}
 	enumerator->destroy(enumerator);
 
-	if (!any && group == MODP_NONE)
+	if (!any && alg == 0)
 	{
 		found = TRUE;
 	}
 	return found;
 }
 
-METHOD(proposal_t, promote_dh_group, bool,
-	private_proposal_t *this, diffie_hellman_group_t group)
+METHOD(proposal_t, promote_transform, bool,
+	private_proposal_t *this, transform_type_t type, uint16_t alg)
 {
 	enumerator_t *enumerator;
 	entry_t *entry;
@@ -282,8 +282,8 @@ METHOD(proposal_t, promote_dh_group, bool,
 	enumerator = array_create_enumerator(this->transforms);
 	while (enumerator->enumerate(enumerator, &entry))
 	{
-		if (entry->type == DIFFIE_HELLMAN_GROUP &&
-			entry->alg == group)
+		if (entry->type == type &&
+			entry->alg == alg)
 		{
 			array_remove_at(this->transforms, enumerator);
 			found = TRUE;
@@ -294,16 +294,16 @@ METHOD(proposal_t, promote_dh_group, bool,
 	if (found)
 	{
 		entry_t entry = {
-			.type = DIFFIE_HELLMAN_GROUP,
-			.alg = group,
+			.type = type,
+			.alg = alg,
 		};
 		array_insert(this->transforms, ARRAY_HEAD, &entry);
 	}
 	return found;
 }
 
-METHOD(proposal_t, strip_dh, void,
-	private_proposal_t *this, diffie_hellman_group_t keep)
+METHOD(proposal_t, strip_transform, void,
+	private_proposal_t *this, transform_type_t type, uint16_t keep)
 {
 	enumerator_t *enumerator;
 	entry_t *entry;
@@ -312,7 +312,7 @@ METHOD(proposal_t, strip_dh, void,
 	enumerator = array_create_enumerator(this->transforms);
 	while (enumerator->enumerate(enumerator, &entry))
 	{
-		if (entry->type == DIFFIE_HELLMAN_GROUP)
+		if (entry->type == type)
 		{
 			if (entry->alg != keep)
 			{
@@ -327,9 +327,9 @@ METHOD(proposal_t, strip_dh, void,
 	enumerator->destroy(enumerator);
 	array_compress(this->transforms);
 
-	if (keep == MODP_NONE || !found)
+	if (keep == 0 || !found)
 	{
-		remove_type(this, DIFFIE_HELLMAN_GROUP);
+		remove_type(this, type);
 		array_compress(this->types);
 	}
 }
@@ -952,9 +952,9 @@ proposal_t *proposal_create(protocol_id_t protocol, u_int number)
 			.add_algorithm = _add_algorithm,
 			.create_enumerator = _create_enumerator,
 			.get_algorithm = _get_algorithm,
-			.has_dh_group = _has_dh_group,
-			.promote_dh_group = _promote_dh_group,
-			.strip_dh = _strip_dh,
+			.has_transform = _has_transform,
+			.promote_transform = _promote_transform,
+			.strip_transform = _strip_transform,
 			.select = _select_proposal,
 			.matches = _matches,
 			.get_protocol = _get_protocol,
