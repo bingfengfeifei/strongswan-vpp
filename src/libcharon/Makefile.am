@@ -91,6 +91,7 @@ if USE_IKEV2
 libcharon_la_SOURCES += \
 sa/ikev2/keymat_v2.c sa/ikev2/keymat_v2.h \
 sa/ikev2/task_manager_v2.c sa/ikev2/task_manager_v2.h \
+sa/ikev2/init_packet_cache.c sa/ikev2/init_packet_cache.h \
 sa/ikev2/authenticators/eap_authenticator.c sa/ikev2/authenticators/eap_authenticator.h \
 sa/ikev2/authenticators/psk_authenticator.c sa/ikev2/authenticators/psk_authenticator.h \
 sa/ikev2/authenticators/pubkey_authenticator.c sa/ikev2/authenticators/pubkey_authenticator.h \

@@ -114,6 +114,31 @@ struct keymat_v2_t {
 	pseudo_random_function_t (*get_skd)(keymat_v2_t *this, chunk_t *skd);
 
 	/**
+	 * Cache data of an initial IKE packet (IKE_SA_INIT/IKE_AUX) for use in the
+	 * auth octets.
+	 *
+	 * @param sent			TRUE if message was sent, FALSE if received
+	 * @param mid			message ID of the packet
+	 * @param fnr			fragment number of the packet
+	 * @param data			IKE message or fragment data (cloned)
+	 */
+	void (*add_packet)(keymat_v2_t *this, bool sent, uint32_t mid, uint16_t fnr,
+					   chunk_t data);
+
+	/**
+	 * Get cached data of all initial IKE packets for use in the auth octets.
+	 *
+	 * @param sent			TRUE for sent packets, FALSE for received packets
+	 * @return				concatenated packet data (allocated)
+	 */
+	chunk_t (*get_packets)(keymat_v2_t *this, bool sent);
+
+	/**
+	 * Clear all cached initial IKE packets after the authentication succeeded.
+	 */
+	void (*clear_packets)(keymat_v2_t *this);
+
+	/**
 	 * Generate octets to use for authentication procedure (RFC4306 2.15).
 	 *
 	 * This method creates the plain octets and is usually signed by a private
@@ -121,21 +146,22 @@ struct keymat_v2_t {
 	 * the get_psk_sig() method instead.
 	 *
 	 * @param verify		TRUE to create for verification, FALSE to sign
-	 * @param ike_sa_init	encoded ike_sa_init message
+	 * @param packets		initial packet data
 	 * @param nonce			nonce value
 	 * @param ppk			optional postquantum preshared key
 	 * @param id			identity
 	 * @param reserved		reserved bytes of id_payload
-	 * @param octests		chunk receiving allocated auth octets
+	 * @param octets		chunk receiving allocated auth octets
 	 * @param schemes		array containing signature schemes
 	 * 						(signature_params_t*) in case they need to be
 	 *						modified by the keymat implementation
 	 * @return				TRUE if octets created successfully
 	 */
-	bool (*get_auth_octets)(keymat_v2_t *this, bool verify, chunk_t ike_sa_init,
+	bool (*get_auth_octets)(keymat_v2_t *this, bool verify, chunk_t packets,
 							chunk_t nonce, chunk_t ppk, identification_t *id,
 							char reserved[3], chunk_t *octets,
 							array_t *schemes);
+
 	/**
 	 * Build the shared secret signature used for PSK and EAP authentication.
 	 *
@@ -144,7 +170,7 @@ struct keymat_v2_t {
 	 * used as secret (used for EAP methods without MSK).
 	 *
 	 * @param verify		TRUE to create for verification, FALSE to sign
-	 * @param ike_sa_init	encoded ike_sa_init message
+	 * @param packets		initial packet data
 	 * @param nonce			nonce value
 	 * @param secret		optional secret to include into signature
 	 * @param ppk			optional postquantum preshared key
@@ -153,7 +179,7 @@ struct keymat_v2_t {
 	 * @param sign			chunk receiving allocated signature octets
 	 * @return				TRUE if signature created successfully
 	 */
-	bool (*get_psk_sig)(keymat_v2_t *this, bool verify, chunk_t ike_sa_init,
+	bool (*get_psk_sig)(keymat_v2_t *this, bool verify, chunk_t packets,
 						chunk_t nonce, chunk_t secret, chunk_t ppk,
 						identification_t *id, char reserved[3], chunk_t *sig);
 

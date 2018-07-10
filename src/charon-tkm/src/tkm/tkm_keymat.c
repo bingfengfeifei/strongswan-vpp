@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Tobias Brunner
+ * Copyright (C) 2015-2018 Tobias Brunner
  * Copyright (C) 2012 Reto Buerki
  * Copyright (C) 2012 Adrian-Ken Rueegsegger
  * HSR Hochschule fuer Technik Rapperswil
@@ -18,6 +18,7 @@
 #include <daemon.h>
 #include <tkm/constants.h>
 #include <tkm/client.h>
+#include <sa/ikev2/init_packet_cache.h>
 #include <crypto/hashers/hash_algorithm_set.h>
 
 #include "tkm.h"
@@ -77,6 +78,11 @@ struct private_tkm_keymat_t {
 	 * Set of hash algorithms supported by peer for signature authentication
 	 */
 	hash_algorithm_set_t *hash_algorithms;
+
+	/**
+	 * Initial packet data
+	 */
+	init_packet_cache_t *packets;
 };
 
 /**
@@ -383,6 +389,36 @@ METHOD(keymat_t, get_aead, aead_t*,
 	return in ? this->aead_in : this->aead_out;
 }
 
+METHOD(keymat_v2_t, add_packet, void,
+	private_tkm_keymat_t *this, bool sent, uint32_t mid, uint16_t fnr,
+	chunk_t data)
+{
+	if (!this->packets)
+	{
+		this->packets = init_packet_cache_create();
+	}
+	this->packets->add_packet(this->packets, sent, mid, fnr, data);
+}
+
+METHOD(keymat_v2_t, get_packets, chunk_t,
+	private_tkm_keymat_t *this, bool sent)
+{
+	if (this->packets)
+	{
+		return this->packets->get_packets(this->packets, sent);
+	}
+	return chunk_empty;
+}
+
+METHOD(keymat_v2_t, clear_packets, void,
+	private_tkm_keymat_t *this)
+{
+	if (this->packets)
+	{
+		this->packets->clear_packets(this->packets);
+	}
+}
+
 METHOD(keymat_v2_t, get_auth_octets, bool,
 	private_tkm_keymat_t *this, bool verify, chunk_t ike_sa_init,
 	chunk_t nonce, chunk_t ppk, identification_t *id, char reserved[3],
@@ -473,6 +509,7 @@ METHOD(keymat_t, destroy, void,
 		}
 	}
 
+	DESTROY_IF(this->packets);
 	DESTROY_IF(this->hash_algorithms);
 	DESTROY_IF(this->aead_in);
 	DESTROY_IF(this->aead_out);
@@ -527,6 +564,9 @@ tkm_keymat_t *tkm_keymat_create(bool initiator)
 				.derive_ike_keys_ppk = (void*)return_false,
 				.derive_child_keys = _derive_child_keys,
 				.get_skd = _get_skd,
+				.add_packet = _add_packet,
+				.get_packets = _get_packets,
+				.clear_packets = _clear_packets,
 				.get_auth_octets = _get_auth_octets,
 				.get_psk_sig = _get_psk_sig,
 				.add_hash_algorithm = _add_hash_algorithm,

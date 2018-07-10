@@ -17,6 +17,7 @@
 #include "keymat_v2.h"
 
 #include <daemon.h>
+#include <sa/ikev2/init_packet_cache.h>
 #include <crypto/prf_plus.h>
 #include <crypto/hashers/hash_algorithm_set.h>
 
@@ -76,6 +77,11 @@ struct private_keymat_v2_t {
 	 * Set of hash algorithms supported by peer for signature authentication
 	 */
 	hash_algorithm_set_t *hash_algorithms;
+
+	/**
+	 * Initial packet data
+	 */
+	init_packet_cache_t *packets;
 };
 
 METHOD(keymat_t, get_version, ike_version_t,
@@ -741,8 +747,38 @@ METHOD(keymat_t, get_aead, aead_t*,
 	return in ? this->aead_in : this->aead_out;
 }
 
+METHOD(keymat_v2_t, add_packet, void,
+	private_keymat_v2_t *this, bool sent, uint32_t mid, uint16_t fnr,
+	chunk_t data)
+{
+	if (!this->packets)
+	{
+		this->packets = init_packet_cache_create();
+	}
+	this->packets->add_packet(this->packets, sent, mid, fnr, data);
+}
+
+METHOD(keymat_v2_t, get_packets, chunk_t,
+	private_keymat_v2_t *this, bool sent)
+{
+	if (this->packets)
+	{
+		return this->packets->get_packets(this->packets, sent);
+	}
+	return chunk_empty;
+}
+
+METHOD(keymat_v2_t, clear_packets, void,
+	private_keymat_v2_t *this)
+{
+	if (this->packets)
+	{
+		this->packets->clear_packets(this->packets);
+	}
+}
+
 METHOD(keymat_v2_t, get_auth_octets, bool,
-	private_keymat_v2_t *this, bool verify, chunk_t ike_sa_init,
+	private_keymat_v2_t *this, bool verify, chunk_t packets,
 	chunk_t nonce, chunk_t ppk, identification_t *id, char reserved[3],
 	chunk_t *octets, array_t *schemes)
 {
@@ -775,7 +811,7 @@ METHOD(keymat_v2_t, get_auth_octets, bool,
 		return FALSE;
 	}
 	chunk_clear(&skp_ppk);
-	*octets = chunk_cat("ccm", ike_sa_init, nonce, chunk);
+	*octets = chunk_cat("ccm", packets, nonce, chunk);
 	DBG3(DBG_IKE, "octets = message + nonce + prf(Sk_px, IDx') %B", octets);
 	return TRUE;
 }
@@ -787,7 +823,7 @@ METHOD(keymat_v2_t, get_auth_octets, bool,
 #define IKEV2_KEY_PAD_LENGTH 17
 
 METHOD(keymat_v2_t, get_psk_sig, bool,
-	private_keymat_v2_t *this, bool verify, chunk_t ike_sa_init, chunk_t nonce,
+	private_keymat_v2_t *this, bool verify, chunk_t packets, chunk_t nonce,
 	chunk_t secret, chunk_t ppk, identification_t *id, char reserved[3],
 	chunk_t *sig)
 {
@@ -807,7 +843,7 @@ METHOD(keymat_v2_t, get_psk_sig, bool,
 			secret = skp_ppk;
 		}
 	}
-	if (!get_auth_octets(this, verify, ike_sa_init, nonce, ppk, id, reserved,
+	if (!get_auth_octets(this, verify, packets, nonce, ppk, id, reserved,
 						 &octets, NULL))
 	{
 		goto failure;
@@ -834,7 +870,6 @@ failure:
 	chunk_free(&octets);
 	chunk_free(&key);
 	return success;
-
 }
 
 METHOD(keymat_v2_t, hash_algorithm_supported, bool,
@@ -867,6 +902,7 @@ METHOD(keymat_t, destroy, void,
 	chunk_clear(&this->skp_verify);
 	chunk_clear(&this->skp_build);
 	DESTROY_IF(this->hash_algorithms);
+	DESTROY_IF(this->packets);
 	free(this);
 }
 
@@ -891,6 +927,9 @@ keymat_v2_t *keymat_v2_create(bool initiator)
 			.derive_ike_keys_ppk = _derive_ike_keys_ppk,
 			.derive_child_keys = _derive_child_keys,
 			.get_skd = _get_skd,
+			.add_packet = _add_packet,
+			.get_packets = _get_packets,
+			.clear_packets = _clear_packets,
 			.get_auth_octets = _get_auth_octets,
 			.get_psk_sig = _get_psk_sig,
 			.add_hash_algorithm = _add_hash_algorithm,
