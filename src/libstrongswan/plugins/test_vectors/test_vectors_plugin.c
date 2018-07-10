@@ -28,6 +28,7 @@
 #define TEST_VECTOR_DRBG(x) extern drbg_test_vector_t x;
 #define TEST_VECTOR_RNG(x) extern rng_test_vector_t x;
 #define TEST_VECTOR_DH(x) extern dh_test_vector_t x;
+#define TEST_VECTOR_QSKE(x) extern qske_test_vector_t x;
 
 #include "test_vectors.h"
 
@@ -40,6 +41,8 @@
 #undef TEST_VECTOR_DRBG
 #undef TEST_VECTOR_RNG
 #undef TEST_VECTOR_DH
+#undef TEST_VECTOR_QSKE
+
 
 #define TEST_VECTOR_CRYPTER(x)
 #define TEST_VECTOR_AEAD(x)
@@ -50,6 +53,7 @@
 #define TEST_VECTOR_DRBG(x)
 #define TEST_VECTOR_RNG(x)
 #define TEST_VECTOR_DH(x)
+#define TEST_VECTOR_QSKE(x)
 
 /* create test vector arrays */
 #undef TEST_VECTOR_CRYPTER
@@ -123,6 +127,14 @@ static dh_test_vector_t *dh[] = {
 };
 #undef TEST_VECTOR_DH
 #define TEST_VECTOR_DH(x)
+
+#undef TEST_VECTOR_QSKE
+#define TEST_VECTOR_QSKE(x) &x,
+static qske_test_vector_t *qske[] = {
+#include "test_vectors.h"
+};
+#undef TEST_VECTOR_QSKE
+#define TEST_VECTOR_QSKE(x)
 
 typedef struct private_test_vectors_plugin_t private_test_vectors_plugin_t;
 
@@ -223,6 +235,10 @@ plugin_t *test_vectors_plugin_create()
 		lib->crypto->add_test_vector(lib->crypto,
 									 DIFFIE_HELLMAN_GROUP, dh[i]);
 	}
-
+	for (i = 0; i < countof(qske); i++)
+	{
+		lib->crypto->add_test_vector(lib->crypto,
+									 QSKE_MECHANISM, qske[i]);
+	}
 	return &this->public.plugin;
 }

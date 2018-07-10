@@ -52,6 +52,13 @@ libstrongswan_test_vectors_la_SOURCES = \
 	test_vectors/curve448.c \
 	test_vectors/drbg_ctr.c \
 	test_vectors/drbg_hmac.c \
-	test_vectors/rng.c
+	test_vectors/rng.c \
+	test_vectors/qske_newhope.c \
+	test_vectors/qske_frodo.c \
+	test_vectors/qske_kyber.c \
+	test_vectors/qske_bike.c \
+	test_vectors/qske_sike.c \
+	test_vectors/qske_saber.c \
+	test_vectors/qske_lima.c
 
 libstrongswan_test_vectors_la_LDFLAGS = -module -avoid-version
