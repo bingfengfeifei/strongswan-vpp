@@ -604,11 +604,11 @@ METHOD(keymat_v2_t, derive_ike_keys_ppk, bool,
 
 METHOD(keymat_v2_t, derive_child_keys, bool,
 	private_keymat_v2_t *this, proposal_t *proposal, diffie_hellman_t *dh,
-	chunk_t nonce_i, chunk_t nonce_r, chunk_t *encr_i, chunk_t *integ_i,
-	chunk_t *encr_r, chunk_t *integ_r)
+	qske_t *qske, chunk_t nonce_i, chunk_t nonce_r, chunk_t *encr_i,
+	chunk_t *integ_i, chunk_t *encr_r, chunk_t *integ_r)
 {
 	uint16_t enc_alg, int_alg, enc_size = 0, int_size = 0;
-	chunk_t seed, secret = chunk_empty;
+	chunk_t seed, secret = chunk_empty, qske_secret = chunk_empty;
 	prf_plus_t *prf_plus;
 
 	if (proposal->get_algorithm(proposal, ENCRYPTION_ALGORITHM,
@@ -688,7 +688,16 @@ METHOD(keymat_v2_t, derive_child_keys, bool,
 		}
 		DBG4(DBG_CHD, "DH secret %B", &secret);
 	}
-	seed = chunk_cata("scc", secret, nonce_i, nonce_r);
+	if (qske)
+	{
+		if (!qske->get_shared_secret(qske, &qske_secret))
+		{
+			chunk_clear(&secret);
+			return FALSE;
+		}
+		DBG4(DBG_CHD, "QSKE secret %B", &qske_secret);
+	}
+	seed = chunk_cata("sscc", secret, qske_secret, nonce_i, nonce_r);
 	DBG4(DBG_CHD, "seed %B", &seed);
 
 	prf_plus = prf_plus_create(this->prf, TRUE, seed);

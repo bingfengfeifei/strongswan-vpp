@@ -336,8 +336,8 @@ METHOD(keymat_v2_t, derive_ike_keys, bool,
 
 METHOD(keymat_v2_t, derive_child_keys, bool,
 	private_tkm_keymat_t *this, proposal_t *proposal, diffie_hellman_t *dh,
-	chunk_t nonce_i, chunk_t nonce_r, chunk_t *encr_i, chunk_t *integ_i,
-	chunk_t *encr_r, chunk_t *integ_r)
+	qske_t *qske, chunk_t nonce_i, chunk_t nonce_r, chunk_t *encr_i,
+	chunk_t *integ_i, chunk_t *encr_r, chunk_t *integ_r)
 {
 	esa_info_t *esa_info_i, *esa_info_r;
 	dh_id_type dh_id = 0;

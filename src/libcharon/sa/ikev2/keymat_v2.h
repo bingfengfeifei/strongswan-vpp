@@ -87,10 +87,14 @@ struct keymat_v2_t {
 	 * The keys for the CHILD_SA are allocated in the integ and encr chunks.
 	 * An implementation might hand out encrypted keys only, which are
 	 * decrypted in the kernel before use.
-	 * If no PFS is used for the CHILD_SA, dh can be NULL.
+	 *
+	 * If no PFS is used for the CHILD_SA, dh may be NULL.
+	 *
+	 * If qske is given, the shared secret is appended to the DH secret, if any.
 	 *
 	 * @param proposal	selected algorithms
-	 * @param dh		diffie hellman key allocated by create_dh(), or NULL
+	 * @param dh		optional diffie hellman key allocated by create_dh()
+	 * @param qske		optional QSKE implementation allocated by create_qske()
 	 * @param nonce_i	initiators nonce value
 	 * @param nonce_r	responders nonce value
 	 * @param encr_i	chunk to write initiators encryption key to
@@ -99,8 +103,8 @@ struct keymat_v2_t {
 	 * @param integ_r	chunk to write responders integrity key to
 	 * @return			TRUE on success
 	 */
-	bool (*derive_child_keys)(keymat_v2_t *this,
-							  proposal_t *proposal, diffie_hellman_t *dh,
+	bool (*derive_child_keys)(keymat_v2_t *this, proposal_t *proposal,
+							  diffie_hellman_t *dh, qske_t *qske,
 							  chunk_t nonce_i, chunk_t nonce_r,
 							  chunk_t *encr_i, chunk_t *integ_i,
 							  chunk_t *encr_r, chunk_t *integ_r);
