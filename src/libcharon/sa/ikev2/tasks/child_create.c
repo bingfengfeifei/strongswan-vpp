@@ -24,6 +24,7 @@
 #include <encoding/payloads/sa_payload.h>
 #include <encoding/payloads/ke_payload.h>
 #include <encoding/payloads/ts_payload.h>
+#include <encoding/payloads/qske_payload.h>
 #include <encoding/payloads/nonce_payload.h>
 #include <encoding/payloads/notify_payload.h>
 #include <encoding/payloads/delete_payload.h>
@@ -117,6 +118,21 @@ struct private_child_create_t {
 	 * group used for DH exchange
 	 */
 	diffie_hellman_group_t dh_group;
+
+	/**
+	 * QSKE mechanism implementation
+	 */
+	qske_t *qske;
+
+	/**
+	 * Handling QSKE failed somehow
+	 */
+	bool qske_failed;
+
+	/**
+	 * QSKE mechanism to use
+	 */
+	qske_mechanism_t qske_mechanism;
 
 	/**
 	 * IKE_SAs keymat
@@ -303,13 +319,15 @@ static bool update_and_check_proposals(private_child_create_t *this)
 {
 	enumerator_t *enumerator;
 	proposal_t *proposal;
-	linked_list_t *other_dh_groups;
-	bool found = FALSE;
+	linked_list_t *others;
+	bool found_dh = FALSE, found_qske = FALSE, success = TRUE;
 
-	other_dh_groups = linked_list_create();
+	others = linked_list_create();
 	enumerator = this->proposals->create_enumerator(this->proposals);
 	while (enumerator->enumerate(enumerator, &proposal))
 	{
+		bool moved = FALSE;
+
 		proposal->set_spi(proposal, this->my_spi);
 
 		/* move the selected DH group to the front, if any */
@@ -320,24 +338,56 @@ static bool update_and_check_proposals(private_child_create_t *this)
 											 this->dh_group))
 			{
 				this->proposals->remove_at(this->proposals, enumerator);
-				other_dh_groups->insert_last(other_dh_groups, proposal);
+				others->insert_last(others, proposal);
+				moved = TRUE;
 			}
 			else
 			{
-				found = TRUE;
+				found_dh = TRUE;
+			}
+		}
+		/* same for QSKE mechanisms */
+		if (this->qske_mechanism != QSKE_NONE)
+		{
+			if (!proposal->promote_transform(proposal, QSKE_MECHANISM,
+											 this->qske_mechanism))
+			{
+				if (!moved)
+				{
+					this->proposals->remove_at(this->proposals, enumerator);
+					/* if the proposal contains the proposed DH group, add it
+					 * before any that contains neither */
+					others->insert_first(others, proposal);
+				}
+			}
+			else
+			{
+				found_qske = TRUE;
 			}
 		}
 	}
 	enumerator->destroy(enumerator);
-	enumerator = other_dh_groups->create_enumerator(other_dh_groups);
+	enumerator = others->create_enumerator(others);
 	while (enumerator->enumerate(enumerator, (void**)&proposal))
 	{	/* no need to remove from the list as we destroy it anyway*/
 		this->proposals->insert_last(this->proposals, proposal);
 	}
 	enumerator->destroy(enumerator);
-	other_dh_groups->destroy(other_dh_groups);
+	others->destroy(others);
 
-	return this->dh_group == MODP_NONE || found;
+	if (this->dh_group != MODP_NONE && !found_dh)
+	{
+		DBG1(DBG_IKE, "requested DH group %N not contained in any of our "
+			 "proposals", diffie_hellman_group_names, this->dh_group);
+		success = FALSE;
+	}
+	if (this->qske_mechanism != QSKE_NONE && !found_qske)
+	{
+		DBG1(DBG_IKE, "requested QSKE mechanism %N not contained in any of our "
+			 "proposals", qske_mechanism_names, this->qske_mechanism);
+		success = FALSE;
+	}
+	return success;
 }
 
 /**
@@ -531,12 +581,10 @@ static bool check_mode(private_child_create_t *this, host_t *i, host_t *r)
 
 /**
  * Install a CHILD_SA for usage, return value:
- * - FAILED: no acceptable proposal
- * - INVALID_ARG: diffie hellman group unacceptable
+ * - FAILED: SPI allocation failed
  * - NOT_FOUND: TS unacceptable
  */
-static status_t select_and_install(private_child_create_t *this,
-								   bool no_dh, bool ike_auth)
+static status_t select_and_install(private_child_create_t *this, bool ike_auth)
 {
 	status_t status, status_i, status_o;
 	child_sa_outbound_state_t out_state;
@@ -545,34 +593,10 @@ static status_t select_and_install(private_child_create_t *this,
 	chunk_t integ_i = chunk_empty, integ_r = chunk_empty;
 	linked_list_t *my_ts, *other_ts;
 	host_t *me, *other;
-	bool private, prefer_configured;
-
-	if (this->proposals == NULL)
-	{
-		DBG1(DBG_IKE, "SA payload missing in message");
-		return FAILED;
-	}
-	if (this->tsi == NULL || this->tsr == NULL)
-	{
-		DBG1(DBG_IKE, "TS payloads missing in message");
-		return NOT_FOUND;
-	}
 
 	me = this->ike_sa->get_my_host(this->ike_sa);
 	other = this->ike_sa->get_other_host(this->ike_sa);
 
-	private = this->ike_sa->supports_extension(this->ike_sa, EXT_STRONGSWAN);
-	prefer_configured = lib->settings->get_bool(lib->settings,
-							"%s.prefer_configured_proposals", TRUE, lib->ns);
-	this->proposal = this->config->select_proposal(this->config,
-							this->proposals, no_dh, private, prefer_configured);
-	if (this->proposal == NULL)
-	{
-		DBG1(DBG_IKE, "no acceptable proposal found");
-		charon->bus->alert(charon->bus, ALERT_PROPOSAL_MISMATCH_CHILD,
-						   this->proposals);
-		return FAILED;
-	}
 	this->other_spi = this->proposal->get_spi(this->proposal);
 
 	if (!this->initiator)
@@ -586,27 +610,6 @@ static status_t select_and_install(private_child_create_t *this,
 		this->proposal->set_spi(this->proposal, this->my_spi);
 	}
 	this->child_sa->set_proposal(this->child_sa, this->proposal);
-
-	if (!this->proposal->has_transform(this->proposal, DIFFIE_HELLMAN_GROUP,
-									   this->dh_group))
-	{
-		uint16_t group;
-
-		if (this->proposal->get_algorithm(this->proposal, DIFFIE_HELLMAN_GROUP,
-										  &group, NULL))
-		{
-			DBG1(DBG_IKE, "DH group %N unacceptable, requesting %N",
-				 diffie_hellman_group_names, this->dh_group,
-				 diffie_hellman_group_names, group);
-			this->dh_group = group;
-			return INVALID_ARG;
-		}
-		/* the selected proposal does not use a DH group */
-		DBG1(DBG_IKE, "ignoring KE exchange, agreed on a non-PFS proposal");
-		DESTROY_IF(this->dh);
-		this->dh = NULL;
-		this->dh_group = MODP_NONE;
-	}
 
 	if (this->initiator)
 	{
@@ -712,14 +715,15 @@ static status_t select_and_install(private_child_create_t *this,
 	this->child_sa->set_protocol(this->child_sa,
 								 this->proposal->get_protocol(this->proposal));
 
-	if (this->my_cpi == 0 || this->other_cpi == 0 || this->ipcomp == IPCOMP_NONE)
+	if (this->my_cpi == 0 || this->other_cpi == 0 ||
+		this->ipcomp == IPCOMP_NONE)
 	{
 		this->my_cpi = this->other_cpi = 0;
 		this->ipcomp = IPCOMP_NONE;
 	}
 	status_i = status_o = FAILED;
 	if (this->keymat->derive_child_keys(this->keymat, this->proposal, this->dh,
-			NULL, nonce_i, nonce_r, &encr_i, &integ_i, &encr_r, &integ_r))
+			this->qske, nonce_i, nonce_r, &encr_i, &integ_i, &encr_r, &integ_r))
 	{
 		if (this->initiator)
 		{
@@ -833,6 +837,34 @@ static status_t select_and_install(private_child_create_t *this,
 }
 
 /**
+ * Select a proposal
+ */
+static bool select_proposal(private_child_create_t *this, bool no_dh)
+{
+	bool private, prefer_configured;
+
+	if (!this->proposals)
+	{
+		DBG1(DBG_IKE, "SA payload missing in message");
+		return FALSE;
+	}
+
+	private = this->ike_sa->supports_extension(this->ike_sa, EXT_STRONGSWAN);
+	prefer_configured = lib->settings->get_bool(lib->settings,
+							"%s.prefer_configured_proposals", TRUE, lib->ns);
+	this->proposal = this->config->select_proposal(this->config,
+							this->proposals, no_dh, private, prefer_configured);
+	if (!this->proposal)
+	{
+		DBG1(DBG_IKE, "no acceptable proposal found");
+		charon->bus->alert(charon->bus, ALERT_PROPOSAL_MISMATCH_CHILD,
+						   this->proposals);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+/**
  * build the payloads for the message
  */
 static bool build_payloads(private_child_create_t *this, message_t *message)
@@ -840,6 +872,7 @@ static bool build_payloads(private_child_create_t *this, message_t *message)
 	sa_payload_t *sa_payload;
 	nonce_payload_t *nonce_payload;
 	ke_payload_t *ke_payload;
+	qske_payload_t *qske_payload;
 	ts_payload_t *ts_payload;
 	kernel_feature_t features;
 
@@ -873,6 +906,18 @@ static bool build_payloads(private_child_create_t *this, message_t *message)
 			return FALSE;
 		}
 		message->add_payload(message, (payload_t*)ke_payload);
+	}
+
+	if (this->qske)
+	{
+		qske_payload = qske_payload_create_from_qske(this->qske,
+													 this->initiator);
+		if (!qske_payload)
+		{
+			DBG1(DBG_IKE, "failed to create QSKE payload");
+			return FALSE;
+		}
+		message->add_payload(message, (payload_t*)qske_payload);
 	}
 
 	/* add TSi/TSr payloads */
@@ -980,6 +1025,70 @@ static void handle_notify(private_child_create_t *this, notify_payload_t *notify
 }
 
 /**
+ * Process a KE payload
+ */
+static void process_ke_payload(private_child_create_t *this,
+							   ke_payload_t *ke_payload)
+{
+	if (!this->initiator)
+	{
+		this->dh = this->keymat->keymat.create_dh(&this->keymat->keymat,
+												  this->dh_group);
+	}
+	else if (this->dh)
+	{
+		if (this->dh->get_dh_group(this->dh) != this->dh_group)
+		{
+			DBG1(DBG_IKE, "DH group in received payload doesn't match");
+			this->dh_failed = TRUE;
+		}
+	}
+	if (this->dh && !this->dh_failed)
+	{
+		if (!this->dh->set_other_public_value(this->dh,
+								ke_payload->get_key_exchange_data(ke_payload)))
+		{
+			DBG1(DBG_IKE, "applying DH public value failed");
+			this->dh_failed = TRUE;
+		}
+	}
+}
+
+/**
+ * Process a QSKE payload
+ */
+static void process_qske_payload(private_child_create_t *this,
+								 qske_payload_t *qske)
+{
+	if (!this->initiator)
+	{	/* if failing to create this instance is a failure depends on the
+		 * selected proposal */
+		this->qske = this->keymat->create_qske(this->keymat,
+											   this->qske_mechanism);
+		if (this->qske &&
+			!this->qske->set_public_key(this->qske, qske->get_qske_data(qske)))
+		{
+			DBG1(DBG_IKE, "failed to set QSKE public key");
+			this->qske_failed = TRUE;
+		}
+	}
+	else if (this->qske)
+	{	/* ignore the payload if we didn't propose QSKE */
+		if (this->qske->get_qske_mechanism(this->qske) != this->qske_mechanism)
+		{
+			DBG1(DBG_IKE, "QSKE mechanism in received payload doesn't match");
+			this->qske_failed = TRUE;
+		}
+		else if (!this->qske->set_ciphertext(this->qske,
+											 qske->get_qske_data(qske)))
+		{
+			DBG1(DBG_IKE, "failed to decrypt QSKE shared secret");
+			this->qske_failed = TRUE;
+		}
+	}
+}
+
+/**
  * Read payloads from message
  */
 static void process_payloads(private_child_create_t *this, message_t *message)
@@ -988,6 +1097,7 @@ static void process_payloads(private_child_create_t *this, message_t *message)
 	payload_t *payload;
 	sa_payload_t *sa_payload;
 	ke_payload_t *ke_payload;
+	qske_payload_t *qske;
 	ts_payload_t *ts_payload;
 
 	/* defaults to TUNNEL mode */
@@ -1004,22 +1114,13 @@ static void process_payloads(private_child_create_t *this, message_t *message)
 				break;
 			case PLV2_KEY_EXCHANGE:
 				ke_payload = (ke_payload_t*)payload;
-				if (!this->initiator)
-				{
-					this->dh_group = ke_payload->get_dh_group_number(ke_payload);
-					this->dh = this->keymat->keymat.create_dh(
-										&this->keymat->keymat, this->dh_group);
-				}
-				else if (this->dh)
-				{
-					this->dh_failed = this->dh->get_dh_group(this->dh) !=
-									ke_payload->get_dh_group_number(ke_payload);
-				}
-				if (this->dh && !this->dh_failed)
-				{
-					this->dh_failed = !this->dh->set_other_public_value(this->dh,
-								ke_payload->get_key_exchange_data(ke_payload));
-				}
+				this->dh_group = ke_payload->get_dh_group_number(ke_payload);
+				process_ke_payload(this, ke_payload);
+				break;
+			case PLV2_QSKE:
+				qske = (qske_payload_t*)payload;
+				this->qske_mechanism = qske->get_qske_mechanism(qske);
+				process_qske_payload(this, qske);
 				break;
 			case PLV2_TS_INITIATOR:
 				ts_payload = (ts_payload_t*)payload;
@@ -1071,6 +1172,7 @@ METHOD(task_t, build_i, status_t,
 	host_t *vip;
 	peer_cfg_t *peer_cfg;
 	linked_list_t *list;
+	bool no_dh = TRUE;
 
 	switch (message->get_exchange_type(message))
 	{
@@ -1083,11 +1185,7 @@ METHOD(task_t, build_i, status_t,
 									chunk_empty);
 				return SUCCESS;
 			}
-			if (!this->retry && this->dh_group == MODP_NONE)
-			{	/* during a rekeying the group might already be set */
-				this->dh_group = this->config->get_algorithm(this->config,
-														DIFFIE_HELLMAN_GROUP);
-			}
+			no_dh = FALSE;
 			break;
 		case IKE_AUTH:
 			switch (defer_child_sa(this))
@@ -1153,8 +1251,7 @@ METHOD(task_t, build_i, status_t,
 		this->tsr->insert_first(this->tsr,
 								this->packet_tsr->clone(this->packet_tsr));
 	}
-	this->proposals = this->config->get_proposals(this->config,
-												  this->dh_group == MODP_NONE);
+	this->proposals = this->config->get_proposals(this->config, no_dh);
 	this->mode = this->config->get_mode(this->config);
 
 	this->child.if_id_in_def = this->ike_sa->get_if_id(this->ike_sa, TRUE);
@@ -1183,18 +1280,50 @@ METHOD(task_t, build_i, status_t,
 		return FAILED;
 	}
 
-	if (!update_and_check_proposals(this))
+	/* FIXME: get a group/mechanism from the IKE_SA if we are not rekeying */
+
+	/* during a rekeying the group might already be set */
+	if (!no_dh && !this->retry)
 	{
-		DBG1(DBG_IKE, "requested DH group %N not contained in any of our "
-			 "proposals",
-			 diffie_hellman_group_names, this->dh_group);
-		return FAILED;
+		if (this->dh_group == MODP_NONE)
+		{
+			this->dh_group = this->config->get_algorithm(this->config,
+														 DIFFIE_HELLMAN_GROUP);
+		}
+		if (this->qske_mechanism == QSKE_NONE)
+		{
+			this->qske_mechanism = this->config->get_algorithm(this->config,
+															   QSKE_MECHANISM);
+		}
 	}
 
 	if (this->dh_group != MODP_NONE)
 	{
 		this->dh = this->keymat->keymat.create_dh(&this->keymat->keymat,
 												  this->dh_group);
+		if (!this->dh)
+		{
+			DBG1(DBG_IKE, "DH group %N not supported, disabling DH",
+				 diffie_hellman_group_names, this->dh_group);
+			this->dh_group = MODP_NONE;
+		}
+	}
+
+	if (this->qske_mechanism != QSKE_NONE)
+	{
+		this->qske = this->keymat->create_qske(this->keymat,
+											   this->qske_mechanism);
+		if (!this->qske)
+		{
+			DBG1(DBG_IKE, "QSKE mechanism %N not supported, disabling QSKE",
+				 qske_mechanism_names, this->qske_mechanism);
+			this->qske_mechanism = QSKE_NONE;
+		}
+	}
+
+	if (!update_and_check_proposals(this))
+	{
+		return FAILED;
 	}
 
 	if (this->config->has_option(this->config, OPT_IPCOMP))
@@ -1379,6 +1508,122 @@ static status_t handle_childless(private_child_create_t *this)
 	return NOT_SUPPORTED;
 }
 
+/**
+ * Check if the proposed DH group is valid
+ */
+static bool check_dh_group(private_child_create_t *this, uint16_t *req)
+{
+	uint16_t alg;
+
+	if (!this->proposal->has_transform(this->proposal, DIFFIE_HELLMAN_GROUP,
+									   this->dh_group))
+	{
+		if (this->proposal->get_algorithm(this->proposal, DIFFIE_HELLMAN_GROUP,
+										  &alg, NULL))
+		{
+			if (req)
+			{
+				*req = alg;
+			}
+			return FALSE;
+		}
+		/* the selected proposal does not use a DH group */
+		DBG1(DBG_IKE, "ignoring KE exchange, agreed on a non-PFS proposal");
+		DESTROY_IF(this->dh);
+		this->dh = NULL;
+		this->dh_group = MODP_NONE;
+		/* ignore errors that occurred while handling the KE payload */
+		this->dh_failed = FALSE;
+	}
+	return TRUE;
+}
+
+/**
+ * Check if the proposed DH group is valid as responder
+ */
+static bool check_dh_group_r(private_child_create_t *this, message_t *message)
+{
+	uint16_t alg;
+
+	if (!check_dh_group(this, &alg))
+	{
+		DBG1(DBG_IKE, "DH group %N unacceptable, requesting %N",
+			 diffie_hellman_group_names, this->dh_group,
+			 diffie_hellman_group_names, alg);
+		alg = htons(alg);
+		message->add_notify(message, FALSE, INVALID_KE_PAYLOAD,
+							chunk_from_thing(alg));
+		return FALSE;
+	}
+	else if (this->dh_group != MODP_NONE && !this->dh)
+	{
+		DBG1(DBG_IKE, "negotiated DH group %N not supported",
+			 diffie_hellman_group_names, this->dh_group);
+		message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+/**
+ * Check if the proposed QSKE mechanism is valid
+ */
+static bool check_qske_mechanism(private_child_create_t *this, uint16_t *req)
+{
+	uint16_t alg;
+
+	if (!this->proposal->has_transform(this->proposal, QSKE_MECHANISM,
+									   this->qske_mechanism))
+	{
+		if (this->proposal->get_algorithm(this->proposal, QSKE_MECHANISM,
+										  &alg, NULL))
+		{
+			if (req)
+			{
+				*req = alg;
+			}
+			return FALSE;
+		}
+		/* the selected proposal does not use a QSKE mechanism */
+		DBG1(DBG_IKE, "ignoring QSKE exchange, agreed on a non-QSKE proposal");
+		DESTROY_IF(this->qske);
+		this->qske = NULL;
+		this->qske_mechanism = QSKE_NONE;
+		/* ignore errors that occurred while handling the QSKE payload */
+		this->qske_failed = FALSE;
+	}
+	return TRUE;
+}
+
+/**
+ * Check if the proposed QSKE mechanism is usable as responder
+ */
+static bool check_qske_mechanism_r(private_child_create_t *this,
+								   message_t *message)
+{
+	uint16_t alg;
+
+	if (!check_qske_mechanism(this, &alg))
+	{
+
+		DBG1(DBG_IKE, "QSKE mechanism %N unacceptable, requesting %N",
+			 qske_mechanism_names, this->qske_mechanism,
+			 qske_mechanism_names, alg);
+		alg = htons(alg);
+		message->add_notify(message, FALSE, INVALID_QSKE_PAYLOAD,
+							chunk_from_thing(alg));
+		return FALSE;
+	}
+	else if (this->qske_mechanism != QSKE_NONE && !this->qske)
+	{
+		DBG1(DBG_IKE, "negotiated QSKE mechanism %N not supported",
+			 qske_mechanism_names, this->qske_mechanism);
+		message->add_notify(message, TRUE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 METHOD(task_t, build_r, status_t,
 	private_child_create_t *this, message_t *message)
 {
@@ -1393,13 +1638,6 @@ METHOD(task_t, build_r, status_t,
 		case CREATE_CHILD_SA:
 			if (!generate_nonce(this))
 			{
-				message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN,
-									chunk_empty);
-				return SUCCESS;
-			}
-			if (this->dh_failed)
-			{
-				DBG1(DBG_IKE, "applying DH public value failed");
 				message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN,
 									chunk_empty);
 				return SUCCESS;
@@ -1447,15 +1685,23 @@ METHOD(task_t, build_r, status_t,
 		return SUCCESS;
 	}
 
-	if (this->config == NULL)
+	if (!this->config)
 	{
 		this->config = select_child_cfg(this);
 	}
-	if (this->config == NULL)
+	if (!this->config || !this->tsi || !this->tsr)
 	{
-		DBG1(DBG_IKE, "traffic selectors %#R === %#R unacceptable",
-			 this->tsr, this->tsi);
-		charon->bus->alert(charon->bus, ALERT_TS_MISMATCH, this->tsi, this->tsr);
+		if (!this->tsi || !this->tsr)
+		{
+			DBG1(DBG_IKE, "TS payloads missing in message");
+		}
+		else
+		{
+			DBG1(DBG_IKE, "traffic selectors %#R === %#R unacceptable",
+				 this->tsr, this->tsi);
+			charon->bus->alert(charon->bus, ALERT_TS_MISMATCH, this->tsi,
+							   this->tsr);
+		}
 		message->add_notify(message, FALSE, TS_UNACCEPTABLE, chunk_empty);
 		handle_child_sa_failure(this, message);
 		return SUCCESS;
@@ -1487,6 +1733,31 @@ METHOD(task_t, build_r, status_t,
 	}
 	enumerator->destroy(enumerator);
 
+	if (!select_proposal(this, no_dh))
+	{
+		message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		handle_child_sa_failure(this, message);
+		return SUCCESS;
+	}
+
+	if (!check_dh_group_r(this, message))
+	{
+		/* also add an INVALID_QSKE_PAYLOAD notify if necessary */
+		check_qske_mechanism_r(this, message);
+		return SUCCESS;
+	}
+
+	if (!check_qske_mechanism_r(this, message))
+	{
+		return SUCCESS;
+	}
+
+	if (this->dh_failed || this->qske_failed)
+	{
+		message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN, chunk_empty);
+		return SUCCESS;
+	}
+
 	this->child.if_id_in_def = this->ike_sa->get_if_id(this->ike_sa, TRUE);
 	this->child.if_id_out_def = this->ike_sa->get_if_id(this->ike_sa, FALSE);
 	this->child.encap = this->ike_sa->has_condition(this->ike_sa, COND_NAT_ANY);
@@ -1507,7 +1778,7 @@ METHOD(task_t, build_r, status_t,
 		}
 	}
 
-	switch (select_and_install(this, no_dh, ike_auth))
+	switch (select_and_install(this, ike_auth))
 	{
 		case SUCCESS:
 			break;
@@ -1515,13 +1786,6 @@ METHOD(task_t, build_r, status_t,
 			message->add_notify(message, FALSE, TS_UNACCEPTABLE, chunk_empty);
 			handle_child_sa_failure(this, message);
 			return SUCCESS;
-		case INVALID_ARG:
-		{
-			uint16_t group = htons(this->dh_group);
-			message->add_notify(message, FALSE, INVALID_KE_PAYLOAD,
-								chunk_from_thing(group));
-			return SUCCESS;
-		}
 		case FAILED:
 		default:
 			message->add_notify(message, FALSE, NO_PROPOSAL_CHOSEN, chunk_empty);
@@ -1594,6 +1858,77 @@ static status_t delete_failed_sa(private_child_create_t *this)
 	return SUCCESS;
 }
 
+/**
+ * Handle an INVALID_KE_PAYLOAD notify, look for one if none given
+ */
+static void handle_invalid_ke(private_child_create_t *this, message_t *message,
+							  notify_payload_t *notify)
+{
+	chunk_t data;
+	uint16_t alg = this->dh_group;
+
+	if (!notify || notify->get_notify_type(notify) != INVALID_KE_PAYLOAD)
+	{
+		notify = message->get_notify(message, INVALID_KE_PAYLOAD);
+		if (!notify)
+		{
+			return;
+		}
+	}
+	data = notify->get_notification_data(notify);
+	if (data.len == sizeof(alg))
+	{
+		alg = untoh16(data.ptr);
+	}
+	if (this->retry)
+	{
+		DBG1(DBG_IKE, "already retried with DH group %N, ignore"
+			 "requested %N", diffie_hellman_group_names, this->dh_group,
+			 diffie_hellman_group_names, alg);
+		return;
+	}
+	DBG1(DBG_IKE, "peer didn't accept DH group %N, "
+		 "it requested %N", diffie_hellman_group_names, this->dh_group,
+		 diffie_hellman_group_names, alg);
+	this->dh_group = alg;
+}
+
+/**
+ * Handle an INVALID_QSKE_PAYLOAD notify, look for one if none given
+ */
+static void handle_invalid_qske(private_child_create_t *this, message_t *message,
+								notify_payload_t *notify)
+{
+	chunk_t data;
+	uint16_t alg = this->qske_mechanism;
+
+	if (!notify || notify->get_notify_type(notify) != INVALID_QSKE_PAYLOAD)
+	{
+		notify = message->get_notify(message, INVALID_QSKE_PAYLOAD);
+		if (!notify)
+		{
+			return;
+		}
+	}
+
+	data = notify->get_notification_data(notify);
+	if (data.len == sizeof(alg))
+	{
+		alg = untoh16(data.ptr);
+	}
+	if (this->retry)
+	{
+		DBG1(DBG_IKE, "already retried with QSKE mechanism %N, ignore"
+			 "requested %N", qske_mechanism_names, this->qske_mechanism,
+			 qske_mechanism_names, alg);
+		return;
+	}
+	DBG1(DBG_IKE, "peer didn't accept QSKE mechanism %N, "
+		 "it requested %N", qske_mechanism_names, this->qske_mechanism,
+		 qske_mechanism_names, alg);
+	this->qske_mechanism = alg;
+}
+
 METHOD(task_t, process_i, status_t,
 	private_child_create_t *this, message_t *message)
 {
@@ -1611,7 +1946,7 @@ METHOD(task_t, process_i, status_t,
 			break;
 		case IKE_AUTH:
 			if (this->ike_sa->get_state(this->ike_sa) != IKE_ESTABLISHED)
-			{	/* wait until all authentication round completed */
+			{	/* wait until all authentication rounds completed */
 				return NEED_MORE;
 			}
 			if (defer_child_sa(this) == NEED_MORE)
@@ -1665,33 +2000,21 @@ METHOD(task_t, process_i, status_t,
 					return SUCCESS;
 				}
 				case INVALID_KE_PAYLOAD:
+				case INVALID_QSKE_PAYLOAD:
 				{
-					chunk_t data;
-					uint16_t group = MODP_NONE;
+					handle_invalid_ke(this, message, notify);
+					handle_invalid_qske(this, message, notify);
 
-					data = notify->get_notification_data(notify);
-					if (data.len == sizeof(group))
-					{
-						memcpy(&group, data.ptr, data.len);
-						group = ntohs(group);
-					}
+					enumerator->destroy(enumerator);
 					if (this->retry)
 					{
-						DBG1(DBG_IKE, "already retried with DH group %N, "
-							 "ignore requested %N", diffie_hellman_group_names,
-							 this->dh_group, diffie_hellman_group_names, group);
 						handle_child_sa_failure(this, message);
 						/* an error in CHILD_SA creation is not critical */
 						return SUCCESS;
 					}
-					DBG1(DBG_IKE, "peer didn't accept DH group %N, "
-						 "it requested %N", diffie_hellman_group_names,
-						 this->dh_group, diffie_hellman_group_names, group);
 					this->retry = TRUE;
-					this->dh_group = group;
 					this->child_sa->set_state(this->child_sa, CHILD_RETRYING);
 					this->public.task.migrate(&this->public.task, this->ike_sa);
-					enumerator->destroy(enumerator);
 					return NEED_MORE;
 				}
 				default:
@@ -1738,14 +2061,27 @@ METHOD(task_t, process_i, status_t,
 		return delete_failed_sa(this);
 	}
 
-	if (this->dh_failed)
+	if (!select_proposal(this, no_dh))
 	{
-		DBG1(DBG_IKE, "applying DH public value failed");
 		handle_child_sa_failure(this, message);
 		return delete_failed_sa(this);
 	}
 
-	if (select_and_install(this, no_dh, ike_auth) == SUCCESS)
+	if (!check_dh_group(this, NULL) || !check_qske_mechanism(this, NULL))
+	{
+		DBG1(DBG_IKE, "peer selected a proposal with different DH/QSKE but "
+			 "didn't send back a notify");
+		handle_child_sa_failure(this, message);
+		return delete_failed_sa(this);
+	}
+
+	if (this->dh_failed || this->qske_failed)
+	{
+		handle_child_sa_failure(this, message);
+		return delete_failed_sa(this);
+	}
+
+	if (select_and_install(this, ike_auth) == SUCCESS)
 	{
 		if (!this->rekey)
 		{	/* invoke the child_up() hook if we are not rekeying */
@@ -1835,8 +2171,10 @@ METHOD(task_t, migrate, void,
 	DESTROY_IF(this->child_sa);
 	DESTROY_IF(this->proposal);
 	DESTROY_IF(this->nonceg);
+	DESTROY_IF(this->qske);
 	DESTROY_IF(this->dh);
 	this->dh_failed = FALSE;
+	this->qske_failed = FALSE;
 	if (this->proposals)
 	{
 		this->proposals->destroy_offset(this->proposals, offsetof(proposal_t, destroy));
@@ -1849,6 +2187,7 @@ METHOD(task_t, migrate, void,
 	this->tsi = NULL;
 	this->tsr = NULL;
 	this->dh = NULL;
+	this->qske = NULL;
 	this->nonceg = NULL;
 	this->child_sa = NULL;
 	this->mode = MODE_TUNNEL;
@@ -1879,6 +2218,7 @@ METHOD(task_t, destroy, void,
 	DESTROY_IF(this->packet_tsi);
 	DESTROY_IF(this->packet_tsr);
 	DESTROY_IF(this->proposal);
+	DESTROY_IF(this->qske);
 	DESTROY_IF(this->dh);
 	if (this->proposals)
 	{
