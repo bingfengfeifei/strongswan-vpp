@@ -93,7 +93,7 @@ START_TEST(test_derive_child_keys)
 	chunk_t nonce = chunk_from_chars("test chunk");
 
 	fail_unless(keymat->keymat_v2.derive_child_keys(&keymat->keymat_v2, proposal,
-													(diffie_hellman_t *)dh,
+													(diffie_hellman_t *)dh, NULL,
 													nonce, nonce, &encr_i,
 													&integ_i, &encr_r, &integ_r),
 				"Child key derivation failed");
