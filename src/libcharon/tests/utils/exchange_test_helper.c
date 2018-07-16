@@ -18,6 +18,7 @@
 #include "mock_ipsec.h"
 #include "mock_net.h"
 #include "mock_nonce_gen.h"
+#include "mock_qske.h"
 
 #include <collections/array.h>
 #include <credentials/sets/mem_cred.h>
@@ -334,6 +335,9 @@ void exchange_test_helper_init(char *plugins)
 			PLUGIN_PROVIDE(DH, MODP_3072_BIT),
 			PLUGIN_PROVIDE(DH, ECP_256_BIT),
 			PLUGIN_PROVIDE(DH, ECP_384_BIT),
+		PLUGIN_REGISTER(QSKE, mock_qske_create),
+			PLUGIN_PROVIDE(QSKE, QSKE_NEWHOPE_L1),
+			PLUGIN_PROVIDE(QSKE, QSKE_NEWHOPE_L5),
 		PLUGIN_REGISTER(NONCE_GEN, create_nonce_gen),
 			PLUGIN_PROVIDE(NONCE_GEN),
 				PLUGIN_DEPENDS(RNG, RNG_WEAK),

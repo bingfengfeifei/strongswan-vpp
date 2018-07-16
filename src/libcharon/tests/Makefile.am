@@ -39,6 +39,7 @@ exchange_tests_SOURCES = \
   utils/mock_ipsec.h utils/mock_ipsec.c \
   utils/mock_net.h utils/mock_net.c \
   utils/mock_nonce_gen.h utils/mock_nonce_gen.c \
+  utils/mock_qske.h utils/mock_qske.c \
   utils/mock_sender.h utils/mock_sender.c \
   utils/sa_asserts.h \
   exchange_tests.h exchange_tests.c
