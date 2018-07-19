@@ -231,11 +231,16 @@ struct ike_cfg_t {
 	childless_t (*childless)(ike_cfg_t *this);
 
 	/**
-	 * Get the DH group to use for IKE_SA setup.
+	 * Get the first algorithm of a certain transform type that's contained in
+	 * any of the configured proposals.
 	 *
-	 * @return				dh group to use for initialization
+	 * For instance, use with DIFFIE_HELLMAN_GROUP to get the DH group to use
+	 * for the IKE_SA initiation.
+	 *
+	 * @param type			transform type to look for
+	 * @return				algorithm identifier (0 for none)
 	 */
-	diffie_hellman_group_t (*get_dh_group)(ike_cfg_t *this);
+	uint16_t (*get_algorithm)(ike_cfg_t *this, transform_type_t type);
 
 	/**
 	 * Check if two IKE configs are equal.
