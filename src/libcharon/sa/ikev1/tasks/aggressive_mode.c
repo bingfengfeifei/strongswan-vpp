@@ -253,8 +253,9 @@ METHOD(task_t, build_i, status_t,
 
 			message->add_payload(message, &sa_payload->payload_interface);
 
-			group = this->ike_cfg->get_dh_group(this->ike_cfg);
-			if (group == MODP_NONE)
+			group = this->ike_cfg->get_algorithm(this->ike_cfg,
+												 DIFFIE_HELLMAN_GROUP);
+			if (!group)
 			{
 				DBG1(DBG_IKE, "DH group selection failed");
 				return FAILED;

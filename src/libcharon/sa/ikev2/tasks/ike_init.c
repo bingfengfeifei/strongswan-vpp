@@ -667,12 +667,14 @@ METHOD(task_t, build_i, status_t,
 			}
 			else
 			{	/* this shouldn't happen, but let's be safe */
-				this->dh_group = ike_cfg->get_dh_group(ike_cfg);
+				this->dh_group = ike_cfg->get_algorithm(ike_cfg,
+														DIFFIE_HELLMAN_GROUP);
 			}
 		}
 		else
 		{
-			this->dh_group = ike_cfg->get_dh_group(ike_cfg);
+			this->dh_group = ike_cfg->get_algorithm(ike_cfg,
+													DIFFIE_HELLMAN_GROUP);
 		}
 		this->dh = this->keymat->keymat.create_dh(&this->keymat->keymat,
 												  this->dh_group);
