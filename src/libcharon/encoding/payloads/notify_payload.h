@@ -81,6 +81,8 @@ enum notify_type_t {
 
 	/* IKE-ME, private use */
 	ME_CONNECT_FAILED = 8192,
+	/* Ask peer to use a different QSKE mechanism */
+	INVALID_QSKE_PAYLOAD = 8193,
 
 	/* Windows error code */
 	MS_NOTIFY_STATUS = 12345,
