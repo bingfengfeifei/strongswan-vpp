@@ -190,17 +190,13 @@ METHOD(task_t, build_i, status_t,
 	if (!this->child_create)
 	{
 		proposal_t *proposal;
-		uint16_t dh_group;
 
 		this->child_create = child_create_create(this->ike_sa,
 									config->get_ref(config), TRUE, NULL, NULL);
 
+		/* reuse algorithms negotiated previously */
 		proposal = this->child_sa->get_proposal(this->child_sa);
-		if (proposal->get_algorithm(proposal, DIFFIE_HELLMAN_GROUP,
-									&dh_group, NULL))
-		{	/* reuse the DH group negotiated previously */
-			this->child_create->use_dh_group(this->child_create, dh_group);
-		}
+		this->child_create->use_proposal(this->child_create, proposal);
 	}
 	reqid = this->child_sa->get_reqid(this->child_sa);
 	this->child_create->use_reqid(this->child_create, reqid);

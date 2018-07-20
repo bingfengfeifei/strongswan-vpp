@@ -69,13 +69,12 @@ struct child_create_t {
 	void (*use_if_ids)(child_create_t *this, uint32_t in, uint32_t out);
 
 	/**
-	 * Initially propose a specific DH group to override configuration.
+	 * Set a proposal the initiator can use to e.g. determine what DH group
+	 * to propose during a rekeying.
 	 *
-	 * This is used during rekeying to prefer the previously negotiated group.
-	 *
-	 * @param dh_group	DH group to use
+	 * @param proposal	previous proposal to use as blueprint (cloned)
 	 */
-	void (*use_dh_group)(child_create_t *this, diffie_hellman_group_t dh_group);
+	void (*use_proposal)(child_create_t *this, proposal_t *proposal);
 
 	/**
 	 * Get the lower of the two nonces, used for rekey collisions.
