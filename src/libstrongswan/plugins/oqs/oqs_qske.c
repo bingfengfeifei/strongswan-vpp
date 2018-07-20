@@ -89,30 +89,39 @@ METHOD(qske_t, get_public_key, bool,
 	return TRUE;
 }
 
-METHOD(qske_t, get_ciphertext, bool,
-	private_oqs_qske_t *this, chunk_t *value)
+/**
+ * Generate the shared secret and encrypt it with the configured public key
+ */
+static bool encaps_shared_secret(private_oqs_qske_t *this)
 {
 	OQS_STATUS rc;
 
-	if (!this->ciphertext)
+	if (!this->public_key)
 	{
-		if (!this->public_key)
-		{
-			DBG1(DBG_LIB, "no public key available for %N encapsulation",
-				 qske_mechanism_names, this->qske_mechanism);
-			return FALSE;
-		}
-		this->ciphertext    = malloc(this->kem->length_ciphertext);
-		this->shared_secret = malloc(this->kem->length_shared_secret);
-		memset(this->shared_secret, 0x00, this->kem->length_shared_secret);
-		rc = OQS_KEM_encaps(this->kem, this->ciphertext, this->shared_secret,
-							this->public_key);
-		if (rc != OQS_SUCCESS)
-		{
-			DBG1(DBG_LIB, "%N encapsulation failed",
-				 qske_mechanism_names, this->qske_mechanism);
-			return FALSE;
-		}
+		DBG1(DBG_LIB, "no public key available for %N encapsulation",
+			 qske_mechanism_names, this->qske_mechanism);
+		return FALSE;
+	}
+	this->ciphertext    = malloc(this->kem->length_ciphertext);
+	this->shared_secret = malloc(this->kem->length_shared_secret);
+	memset(this->shared_secret, 0x00, this->kem->length_shared_secret);
+	rc = OQS_KEM_encaps(this->kem, this->ciphertext, this->shared_secret,
+						this->public_key);
+	if (rc != OQS_SUCCESS)
+	{
+		DBG1(DBG_LIB, "%N encapsulation failed",
+			 qske_mechanism_names, this->qske_mechanism);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+METHOD(qske_t, get_ciphertext, bool,
+	private_oqs_qske_t *this, chunk_t *value)
+{
+	if (!this->ciphertext && !encaps_shared_secret(this))
+	{
+		return FALSE;
 	}
 	*value = chunk_clone(chunk_create(this->ciphertext,
 									  this->kem->length_ciphertext));
@@ -122,7 +131,7 @@ METHOD(qske_t, get_ciphertext, bool,
 METHOD(qske_t, get_shared_secret, bool,
 	private_oqs_qske_t *this, chunk_t *secret)
 {
-	if (!this->shared_secret)
+	if (!this->shared_secret && !encaps_shared_secret(this))
 	{
 		return FALSE;
 	}
