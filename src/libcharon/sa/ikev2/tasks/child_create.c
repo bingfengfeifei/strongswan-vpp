@@ -1085,7 +1085,8 @@ METHOD(task_t, build_i, status_t,
 			}
 			if (!this->retry && this->dh_group == MODP_NONE)
 			{	/* during a rekeying the group might already be set */
-				this->dh_group = this->config->get_dh_group(this->config);
+				this->dh_group = this->config->get_algorithm(this->config,
+														DIFFIE_HELLMAN_GROUP);
 			}
 			break;
 		case IKE_AUTH:
