@@ -41,6 +41,7 @@ static int req()
 	char *arg;
 	bool pss = lib->settings->get_bool(lib->settings, "%s.rsa_pss", FALSE,
 									   lib->ns);
+	bool pss_max_salt = FALSE;
 
 	san = linked_list_create();
 
@@ -84,6 +85,11 @@ static int req()
 				if (streq(arg, "pss"))
 				{
 					pss = TRUE;
+				}
+				else if (streq(arg, "pss-max-salt"))
+				{
+					pss = TRUE;
+					pss_max_salt = TRUE;
 				}
 				else if (!streq(arg, "pkcs1"))
 				{
@@ -169,6 +175,17 @@ static int req()
 	}
 	scheme = get_signature_scheme(private, digest, pss);
 
+	if (private->get_type(private) == KEY_RSA && pss_max_salt)
+	{
+		size_t mod_bytes, hash_size;
+		rsa_pss_params_t *pss_params;
+
+		mod_bytes = private->get_keysize(private) / BITS_PER_BYTE;
+		pss_params = (rsa_pss_params_t*)scheme->params;
+		hash_size = hasher_hash_size(pss_params->hash);
+		pss_params->salt_len = mod_bytes - hash_size  - 2;
+	}
+
 	cert = lib->creds->create(lib->creds, CRED_CERTIFICATE, CERT_PKCS10_REQUEST,
 							  BUILD_SIGNING_KEY, private,
 							  BUILD_SUBJECT, id,
@@ -224,7 +241,7 @@ static void __attribute__ ((constructor))reg()
 		{"[--in file|--keyid hex] [--type rsa|ecdsa|bliss|priv] --dn distinguished-name",
 		 "[--san subjectAltName]+ [--password challengePassword]",
 		 "[--digest md5|sha1|sha224|sha256|sha384|sha512|sha3_224|sha3_256|sha3_384|sha3_512]",
-		 "[--rsa-padding pkcs1|pss]",
+		 "[--rsa-padding pkcs1|pss|pss-max-salt]",
 		 "[--outform der|pem]"},
 		{
 			{"help",		'h', 0, "show usage information"},
