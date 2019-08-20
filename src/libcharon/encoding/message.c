@@ -2051,7 +2051,6 @@ METHOD(message_t, fragment, status_t,
 	host_t *src, *dst;
 	chunk_t data;
 	status_t status;
-	uint32_t *lenpos;
 	size_t len;
 
 	src = this->packet->get_source(this->packet);
@@ -2088,7 +2087,7 @@ METHOD(message_t, fragment, status_t,
 			DESTROY_IF(generator);
 			return status;
 		}
-		data = generator->get_chunk(generator, &lenpos);
+		data = generator->get_chunk(generator, NULL);
 		len = data.len + (encrypted ? encrypted->get_length(encrypted) : 0);
 	}
 
@@ -2144,7 +2143,7 @@ METHOD(message_t, fragment, status_t,
 		}
 		next = encrypted->payload_interface.get_next_type((payload_t*)encrypted);
 		encrypted->generate_payloads(encrypted, generator);
-		data = generator->get_chunk(generator, &lenpos);
+		data = generator->get_chunk(generator, NULL);
 		if (!is_encoded(this))
 		{
 			encrypted->destroy(encrypted);
