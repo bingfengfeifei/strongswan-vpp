@@ -1640,7 +1640,8 @@ METHOD(crypto_tester_t, test_qske, bool,
 	qske_constructor_t create, u_int *speed, const char *plugin_name)
 {
 	enumerator_t *enumerator;
-	chunk_t pk, ct, a_ss, b_ss;
+	chunk_t pk = chunk_empty, ct = chunk_empty;
+	chunk_t a_ss = chunk_empty, b_ss = chunk_empty;
 	qske_test_vector_t *v;
 	bool failed = FALSE;
 	u_int tested = 0;

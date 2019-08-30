@@ -58,7 +58,7 @@ libstrongswan_test_vectors_la_SOURCES = \
 	test_vectors/qske_kyber.c \
 	test_vectors/qske_bike.c \
 	test_vectors/qske_sike.c \
-	test_vectors/qske_saber.c \
-	test_vectors/qske_lima.c
+	test_vectors/qske_ntru.c \
+	test_vectors/qske_saber.c
 
 libstrongswan_test_vectors_la_LDFLAGS = -module -avoid-version

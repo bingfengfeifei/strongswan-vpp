@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2018 Tobias Brunner
- * Copyright (C) 2018 Andreas Steffen
+ * Copyright (C) 2018-2019 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -40,31 +40,33 @@ enum qske_mechanism_t {
 	QSKE_NEWHOPE_L5      =  3,
 	QSKE_FRODO_AES_L1    =  4,
 	QSKE_FRODO_AES_L3    =  5,
-	QSKE_FRODO_SHAKE_L1  =  6,
-	QSKE_FRODO_SHAKE_L3  =  7,
-	QSKE_KYBER_L1        =  8,
-	QSKE_KYBER_L3        =  9,
-	QSKE_KYBER_L5        = 10,
-	QSKE_BIKE1_L1        = 11,
-	QSKE_BIKE1_L3        = 12,
-	QSKE_BIKE1_L5        = 13,
-	QSKE_BIKE2_L1        = 14,
-	QSKE_BIKE2_L3        = 15,
-	QSKE_BIKE2_L5        = 16,
-	QSKE_BIKE3_L1        = 17,
-	QSKE_BIKE3_L3        = 18,
-	QSKE_BIKE3_L5        = 19,
-	QSKE_SIKE_L1         = 20,
-	QSKE_SIKE_L3         = 21,
-	QSKE_SABER_L1        = 22,
-	QSKE_SABER_L3        = 23,
-	QSKE_SABER_L5        = 24,
-	QSKE_LIMA_2P_L3      = 25,
-	QSKE_LIMA_2P_L5      = 26,
-	QSKE_LIMA_SP_L1      = 27,
-	QSKE_LIMA_SP_L2      = 28,
-	QSKE_LIMA_SP_L3      = 29,
-	QSKE_LIMA_SP_L5      = 30
+	QSKE_FRODO_AES_L5    =  6,
+	QSKE_FRODO_SHAKE_L1  =  7,
+	QSKE_FRODO_SHAKE_L3  =  8,
+	QSKE_FRODO_SHAKE_L5  =  9,
+	QSKE_KYBER_L1        = 10,
+	QSKE_KYBER_L3        = 11,
+	QSKE_KYBER_L5        = 12,
+	QSKE_BIKE1_L1        = 13,
+	QSKE_BIKE1_L3        = 14,
+	QSKE_BIKE1_L5        = 15,
+	QSKE_BIKE2_L1        = 16,
+	QSKE_BIKE2_L3        = 17,
+	QSKE_BIKE2_L5        = 18,
+	QSKE_BIKE3_L1        = 19,
+	QSKE_BIKE3_L3        = 20,
+	QSKE_BIKE3_L5        = 21,
+	QSKE_SIKE_L1         = 22,
+	QSKE_SIKE_L2         = 23,
+	QSKE_SIKE_L3         = 24,
+	QSKE_SIKE_L5         = 25,
+	QSKE_NTRU_HPS_L1     = 26,
+	QSKE_NTRU_HPS_L3     = 27,
+	QSKE_NTRU_HPS_L5     = 28,
+	QSKE_NTRU_HRSS_L3    = 29,
+	QSKE_SABER_L1        = 30,
+	QSKE_SABER_L3        = 31,
+	QSKE_SABER_L5        = 32
 };
 
 /**

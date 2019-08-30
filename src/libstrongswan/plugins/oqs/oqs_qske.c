@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Andreas Steffen
+ * Copyright (C) 2018-2019 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * Based on public domain code by Erdem Alkim, Léo Ducas, Thomas Pöppelmann,
@@ -265,10 +265,10 @@ oqs_qske_t *oqs_qske_create(qske_mechanism_t mechanism)
 	switch (mechanism)
 	{
 		case QSKE_NEWHOPE_L1:
-			kem_alg = OQS_KEM_alg_newhope_512_cca_kem;
+			kem_alg = OQS_KEM_alg_newhope_512cca;
 			break;
 		case QSKE_NEWHOPE_L5:
-			kem_alg = OQS_KEM_alg_newhope_1024_cca_kem;
+			kem_alg = OQS_KEM_alg_newhope_1024cca;
 			break;
 		case QSKE_FRODO_AES_L1:
 			kem_alg = OQS_KEM_alg_frodokem_640_aes;
@@ -276,20 +276,26 @@ oqs_qske_t *oqs_qske_create(qske_mechanism_t mechanism)
 		case QSKE_FRODO_AES_L3:
 			kem_alg = OQS_KEM_alg_frodokem_976_aes;
 			break;
+		case QSKE_FRODO_AES_L5:
+			kem_alg = OQS_KEM_alg_frodokem_1344_aes;
+			break;
 		case QSKE_FRODO_SHAKE_L1:
-			kem_alg = OQS_KEM_alg_frodokem_640_cshake;
+			kem_alg = OQS_KEM_alg_frodokem_640_shake;
 			break;
 		case QSKE_FRODO_SHAKE_L3:
-			kem_alg = OQS_KEM_alg_frodokem_976_cshake;
+			kem_alg = OQS_KEM_alg_frodokem_976_shake;
+			break;
+		case QSKE_FRODO_SHAKE_L5:
+			kem_alg = OQS_KEM_alg_frodokem_1344_shake;
 			break;
 		case QSKE_KYBER_L1:
-			kem_alg = OQS_KEM_alg_kyber512;
+			kem_alg = OQS_KEM_alg_kyber_512;
 			break;
 		case QSKE_KYBER_L3:
-			kem_alg = OQS_KEM_alg_kyber768;
+			kem_alg = OQS_KEM_alg_kyber_768;
 			break;
 		case QSKE_KYBER_L5:
-			kem_alg = OQS_KEM_alg_kyber1024;
+			kem_alg = OQS_KEM_alg_kyber_1024;
 			break;
 		case QSKE_BIKE1_L1:
 			kem_alg = OQS_KEM_alg_bike1_l1;
@@ -319,37 +325,37 @@ oqs_qske_t *oqs_qske_create(qske_mechanism_t mechanism)
 			kem_alg = OQS_KEM_alg_bike3_l5;
 			break;
 		case QSKE_SIKE_L1:
+			kem_alg = OQS_KEM_alg_sike_p434;
+			break;
+		case QSKE_SIKE_L2:
 			kem_alg = OQS_KEM_alg_sike_p503;
 			break;
 		case QSKE_SIKE_L3:
+			kem_alg = OQS_KEM_alg_sike_p610;
+			break;
+		case QSKE_SIKE_L5:
 			kem_alg = OQS_KEM_alg_sike_p751;
 			break;
+		case QSKE_NTRU_HPS_L1:
+			kem_alg = OQS_KEM_alg_ntru_hps2048509;
+			break;
+		case QSKE_NTRU_HPS_L3:
+			kem_alg = OQS_KEM_alg_ntru_hps2048677;
+			break;
+		case QSKE_NTRU_HPS_L5:
+			kem_alg = OQS_KEM_alg_ntru_hps4096821;
+			break;
+		case QSKE_NTRU_HRSS_L3:
+			kem_alg = OQS_KEM_alg_ntru_hrss701;
+			break;
 		case QSKE_SABER_L1:
-			kem_alg = OQS_KEM_alg_saber_light_saber_kem;
+			kem_alg = OQS_KEM_alg_saber_lightsaber;
 			break;
 		case QSKE_SABER_L3:
-			kem_alg = OQS_KEM_alg_saber_saber_kem;
+			kem_alg = OQS_KEM_alg_saber_saber;
 			break;
 		case QSKE_SABER_L5:
-			kem_alg = OQS_KEM_alg_saber_fire_saber_kem;
-			break;
-		case QSKE_LIMA_2P_L3:
-			kem_alg = OQS_KEM_alg_lima_2p_1024_cca_kem;
-			break;
-		case QSKE_LIMA_2P_L5:
-			kem_alg = OQS_KEM_alg_lima_2p_2048_cca_kem;
-			break;
-		case QSKE_LIMA_SP_L1:
-			kem_alg = OQS_KEM_alg_lima_sp_1018_cca_kem;
-			break;
-		case QSKE_LIMA_SP_L2:
-			kem_alg = OQS_KEM_alg_lima_sp_1306_cca_kem;
-			break;
-		case QSKE_LIMA_SP_L3:
-			kem_alg = OQS_KEM_alg_lima_sp_1822_cca_kem;
-			break;
-		case QSKE_LIMA_SP_L5:
-			kem_alg = OQS_KEM_alg_lima_sp_2062_cca_kem;
+			kem_alg = OQS_KEM_alg_saber_firesaber;
 			break;
 		default:
 			return NULL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Andreas Steffen
+ * Copyright (C) 2018-2019 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -16,7 +16,7 @@
 #include <crypto/crypto_tester.h>
 
 /**
- * First four test vectors of the official BIKE1_L1 KAT
+ * First four test vectors of the Round 1 BIKE1_L1 KAT
  */
 qske_test_vector_t qske_bike1_l1_0 = {
 	.mechanism = QSKE_BIKE1_L1,
@@ -2331,7 +2331,7 @@ qske_test_vector_t qske_bike1_l1_3 = {
 };
 
 /**
- * First four test vectors of the official BIKE1_L3 KAT
+ * First four test vectors of the Round 1 BIKE1_L3 KAT
  */
 qske_test_vector_t qske_bike1_l3_0 = {
 	.mechanism = QSKE_BIKE1_L3,
@@ -6774,7 +6774,7 @@ qske_test_vector_t qske_bike1_l3_3 = {
 };
 
 /**
- * First four test vectors of the official BIKE1_L5 KAT
+ * First four test vectors of the Round 1 BIKE1_L5 KAT
  */
 qske_test_vector_t qske_bike1_l5_0 = {
 	.mechanism = QSKE_BIKE1_L5,

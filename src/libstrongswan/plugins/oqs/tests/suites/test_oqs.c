@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Andreas Steffen
+ * Copyright (C) 2018-2019 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -221,19 +221,19 @@ Suite *oqs_suite_create()
 
 	tc = tcase_create("good");
 	test_case_set_timeout(tc, 30);
-	tcase_add_loop_test(tc, test_oqs_good, QSKE_NEWHOPE_L1, QSKE_LIMA_SP_L5 + 1);
+	tcase_add_loop_test(tc, test_oqs_good, QSKE_NEWHOPE_L1, QSKE_SABER_L5 + 1);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("wrong");
-	tcase_add_loop_test(tc, test_oqs_wrong, QSKE_NEWHOPE_L1, QSKE_LIMA_SP_L5 + 1);
+	tcase_add_loop_test(tc, test_oqs_wrong, QSKE_NEWHOPE_L1, QSKE_SABER_L5 + 1);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("fail_i");
-	tcase_add_loop_test(tc, test_oqs_fail_i, QSKE_NEWHOPE_L1, QSKE_LIMA_SP_L5 + 1);
+	tcase_add_loop_test(tc, test_oqs_fail_i, QSKE_NEWHOPE_L1, QSKE_SABER_L5 + 1);
 	suite_add_tcase(s, tc);
 
 	tc = tcase_create("fail_r");
-	tcase_add_loop_test(tc, test_oqs_fail_r, QSKE_NEWHOPE_L1, QSKE_LIMA_SP_L5 + 1);
+	tcase_add_loop_test(tc, test_oqs_fail_r, QSKE_NEWHOPE_L1, QSKE_SABER_L5 + 1);
 	suite_add_tcase(s, tc);
 
 	return s;
