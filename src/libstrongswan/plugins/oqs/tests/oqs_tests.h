@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Andreas Steffen
+ * Copyright (C) 2018-2019 Andreas Steffen
  * HSR Hochschule fuer Technik Rapperswil
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -14,4 +14,3 @@
  */
 
 TEST_SUITE(oqs_suite_create)
-TEST_SUITE(oqs_kat_suite_create)
