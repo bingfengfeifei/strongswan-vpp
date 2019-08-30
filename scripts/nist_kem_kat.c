@@ -29,6 +29,7 @@ static void usage(FILE *out, char *name)
 	fprintf(out, "Options:\n");
 	fprintf(out, "  -h, --help          print this help.\n");
 	fprintf(out, "  -m, --mechanism     QSKE mechanism.\n");
+	fprintf(out, "  -c, --count         number of structs (default 4).\n");
 	fprintf(out, "  -i, --in=FILE       request file (default STDIN).\n");
 	fprintf(out, "  -o, --out=FILE      response file (default STDOUT).\n");
 	fprintf(out, "\n");
@@ -40,7 +41,7 @@ int main(int argc, char *argv[])
 	FILE *out = stdout;
 	char line[90000], *mechanism = "", *pos, *eol, *param, *value;
 	size_t param_len, value_len;
-	int n;
+	int count = 4, n;
 
 	library_init(NULL, "nist-kem-kat");
 	atexit(library_deinit);
@@ -50,11 +51,12 @@ int main(int argc, char *argv[])
 		struct option long_opts[] = {
 			{"help",		no_argument,		NULL,	'h' },
 			{"mechanism",	required_argument,	NULL,	'm' },
+			{"count",		required_argument,	NULL,	'c' },
 			{"in",			required_argument,	NULL,	'i' },
 			{"out",			required_argument,	NULL,	'o' },
 			{0,0,0,0 },
 		};
-		switch (getopt_long(argc, argv, "h:m:i:o:", long_opts, NULL))
+		switch (getopt_long(argc, argv, "h:m:c:i:o:", long_opts, NULL))
 		{
 			case EOF:
 				break;
@@ -63,6 +65,9 @@ int main(int argc, char *argv[])
 				return 0;
 			case 'm':
 				mechanism = optarg;
+				continue;
+			case 'c':
+				count = atoi(optarg);
 				continue;
 			case 'i':
 				in = fopen(optarg, "r");
@@ -130,9 +135,14 @@ int main(int argc, char *argv[])
 
 		if (streq(param, "count"))
 		{
+			if (count == 0)
+			{
+				break;
+			}
 			fprintf(out, "{\n");
 			fprintf(out, "\t.mechanism = %s,\n", mechanism);
 			fprintf(out, "\t.count = %.*s,\n", value_len, value);
+			count--;
 		}
 		else
 		{
