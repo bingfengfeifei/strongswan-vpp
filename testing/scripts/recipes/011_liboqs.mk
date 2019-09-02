@@ -1,21 +1,20 @@
 #!/usr/bin/make
 
 PKG = liboqs
-REV = nist-branch
-ZIP = $(PKG)-$(REV).zip
-SRC = https://github.com/open-quantum-safe/$(PKG)/archive/$(REV).zip
+ZIP = $(PKG)-master.zip
+SRC = https://github.com/open-quantum-safe/$(PKG)/archive/master.zip
 
 all: install
 
 $(ZIP):
 	wget --ca-directory="/usr/share/ca-certificates/mozilla" $(SRC) -O $(ZIP)
 
-$(PKG)-$(REV): $(ZIP)
+$(PKG)-master: $(ZIP)
 	unzip $(ZIP)
 
-.$(PKG)-built-$(REV): $(PKG)-$(REV)
-	cd $(PKG)-$(REV) && make -j $(NUM_CPUS)
+.$(PKG)-built: $(PKG)-master
+	cd $(PKG)-master && autoreconf -i && ./configure PREFIX=/usr && make -j $(NUM_CPUS)
 	@touch $@
 
-install: .$(PKG)-built-$(REV)
-	cd $(PKG)-$(REV) && PREFIX=/usr make install
+install: .$(PKG)-built
+	cd $(PKG)-master && make install
