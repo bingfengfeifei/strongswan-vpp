@@ -286,6 +286,8 @@ static payload_rule_t informational_i_rules[] = {
 	{PLV2_CONFIGURATION,			0,	1,						TRUE,	FALSE},
 	{PLV2_DELETE,					0,	MAX_DELETE_PAYLOADS,	TRUE,	FALSE},
 	{PLV2_VENDOR_ID,				0,	MAX_VID_PAYLOADS,		TRUE,	FALSE},
+	{PLV2_NONCE,					0,	1,						TRUE,	FALSE},
+	{PLV2_KEY_EXCHANGE,				0,	1,						TRUE,	FALSE},
 };
 
 /**
@@ -300,6 +302,9 @@ static payload_order_t informational_i_order[] = {
 	{PLV2_NOTIFY,					0},
 	{PLV2_DELETE,					0},
 	{PLV2_CONFIGURATION,			0},
+	{PLV2_NONCE,					0},
+	{PLV2_KEY_EXCHANGE,				0},
+	{PLV2_NOTIFY,					ADDITIONAL_KEY_EXCHANGE},
 	{PLV2_FRAGMENT,					0},
 };
 
@@ -313,6 +318,8 @@ static payload_rule_t informational_r_rules[] = {
 	{PLV2_CONFIGURATION,			0,	1,						TRUE,	FALSE},
 	{PLV2_DELETE,					0,	MAX_DELETE_PAYLOADS,	TRUE,	FALSE},
 	{PLV2_VENDOR_ID,				0,	MAX_VID_PAYLOADS,		TRUE,	FALSE},
+	{PLV2_NONCE,					0,	1,						TRUE,	FALSE},
+	{PLV2_KEY_EXCHANGE,				0,	1,						TRUE,	FALSE},
 };
 
 /**
@@ -327,6 +334,9 @@ static payload_order_t informational_r_order[] = {
 	{PLV2_NOTIFY,					0},
 	{PLV2_DELETE,					0},
 	{PLV2_CONFIGURATION,			0},
+	{PLV2_NONCE,					0},
+	{PLV2_KEY_EXCHANGE,				0},
+	{PLV2_NOTIFY,					ADDITIONAL_KEY_EXCHANGE},
 	{PLV2_FRAGMENT,					0},
 };
 
