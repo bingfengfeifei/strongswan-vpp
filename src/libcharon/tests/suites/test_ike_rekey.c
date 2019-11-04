@@ -103,6 +103,43 @@ START_TEST(test_regular)
 END_TEST
 
 /**
+ * Config for multiple KE exchange tests
+ */
+static exchange_test_sa_conf_t add_ke_conf = {
+	.initiator = {
+		.ike = "aes256-sha256-modp3072-ke1_ecp256",
+	},
+	.responder = {
+		.ike = "aes256-sha256-modp3072-ke1_ecp256",
+	},
+};
+
+/**
+ * FIXME: rekeying is not yet supported
+ */
+START_TEST(test_regular_additional_ke)
+{
+	ike_sa_t *a, *b;
+
+	if (_i)
+	{	/* responder rekeys the IKE_SA */
+		exchange_test_helper->establish_sa(exchange_test_helper,
+										   &b, &a, &add_ke_conf);
+	}
+	else
+	{	/* initiator rekeys the IKE_SA */
+		exchange_test_helper->establish_sa(exchange_test_helper,
+										   &a, &b, &add_ke_conf);
+	}
+
+	call_ikesa(b, destroy);
+	call_ikesa(a, destroy);
+
+	charon->ike_sa_manager->flush(charon->ike_sa_manager);
+}
+END_TEST
+
+/**
  * IKE_SA rekeying where the responder does not agree with the DH group selected
  * by the initiator, either initiated by the original initiator or responder of
  * the IKE_SA.
@@ -1464,6 +1501,7 @@ Suite *ike_rekey_suite_create()
 
 	tc = tcase_create("regular");
 	tcase_add_loop_test(tc, test_regular, 0, 2);
+	tcase_add_loop_test(tc, test_regular_additional_ke, 0, 2);
 	tcase_add_loop_test(tc, test_regular_ke_invalid, 0, 2);
 	suite_add_tcase(s, tc);
 
