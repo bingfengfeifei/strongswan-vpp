@@ -131,8 +131,8 @@ METHOD(key_exchange_t, get_public_key, bool,
 	return TRUE;
 }
 
-METHOD(key_exchange_t, set_private_key, bool,
-	private_diffie_hellman_t *this, chunk_t value)
+METHOD(key_exchange_t, set_seed, bool,
+	private_diffie_hellman_t *this, chunk_t value, drbg_t *drbg)
 {
 	curve25519_key pub;
 	u_char basepoint[CURVE25519_KEYSIZE] = {9};
@@ -198,7 +198,7 @@ key_exchange_t *wolfssl_x_diffie_hellman_create(key_exchange_method_t group)
 			.get_shared_secret = _get_shared_secret,
 			.set_public_key = _set_public_key,
 			.get_public_key = _get_public_key,
-			.set_private_key = _set_private_key,
+			.set_seed = _set_seed,
 			.get_method = _get_method,
 			.destroy = _destroy,
 		},
