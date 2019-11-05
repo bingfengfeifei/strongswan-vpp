@@ -141,7 +141,7 @@ all|coverage|sonarcloud)
 	CONFIG="--enable-all --disable-android-dns --disable-android-log
 			--disable-kernel-pfroute --disable-keychain
 			--disable-lock-profiler --disable-padlock --disable-fuzzing
-			--disable-osx-attr --disable-tkm --disable-uci
+			--disable-osx-attr --disable-tkm --disable-uci --disable-oqs
 			--disable-soup --disable-unwind-backtraces
 			--disable-svc --disable-dbghelp-backtraces --disable-socket-win
 			--disable-kernel-wfp --disable-kernel-iph --disable-winhttp"

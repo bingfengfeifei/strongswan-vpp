@@ -673,6 +673,13 @@ if MONOLITHIC
 endif
 endif
 
+if USE_OQS
+  SUBDIRS += plugins/oqs
+if MONOLITHIC
+  libstrongswan_la_LIBADD += plugins/oqs/libstrongswan-oqs.la
+endif
+endif
+
 if USE_TEST_VECTORS
   SUBDIRS += plugins/test_vectors
 if MONOLITHIC
@@ -699,4 +706,8 @@ endif
 
 if USE_NEWHOPE
   SUBDIRS += plugins/newhope/tests
+endif
+
+if USE_OQS
+  SUBDIRS += plugins/oqs/tests
 endif
