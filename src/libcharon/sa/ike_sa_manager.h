@@ -99,8 +99,9 @@ struct ike_sa_manager_t {
 	 * This call checks for an existing IKE_SA by comparing the configuration.
 	 * If the CHILD_SA can be created in an existing IKE_SA, the matching SA
 	 * is returned.
-	 * If no IKE_SA is found, a new one is created. This is also the case when
-	 * the found IKE_SA is in the DELETING state.
+	 * If no IKE_SA is found, a new one is created and registered in the
+	 * manager. This is also the case when the found IKE_SA is in an unusable
+	 * state (e.g. DELETING).
 	 *
 	 * @param peer_cfg			configuration used to find an existing IKE_SA
 	 * @return					checked out/created IKE_SA
