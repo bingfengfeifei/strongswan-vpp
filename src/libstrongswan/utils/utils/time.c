@@ -46,13 +46,18 @@ time_t time_monotonic(timeval_t *tv)
 	return s;
 #else /* !WIN32 */
 #if defined(HAVE_CLOCK_GETTIME) && \
-	(defined(HAVE_CONDATTR_CLOCK_MONOTONIC) || \
+	(defined(HAVE_CONDATTR_CLOCK_BOOTTIME) || \
+	 defined(HAVE_CONDATTR_CLOCK_MONOTONIC) || \
 	 defined(HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC))
 	/* as we use time_monotonic() for condvar operations, we use the
 	 * monotonic time source only if it is also supported by pthread. */
 	timespec_t ts;
 
+#ifdef HAVE_CONDATTR_CLOCK_BOOTTIME
+	if (clock_gettime(CLOCK_BOOTTIME, &ts) == 0)
+#else
 	if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
+#endif
 	{
 		if (tv)
 		{

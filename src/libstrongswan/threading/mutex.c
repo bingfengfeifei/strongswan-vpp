@@ -335,7 +335,9 @@ condvar_t *condvar_create(condvar_type_t type)
 			{
 				pthread_condattr_t condattr;
 				pthread_condattr_init(&condattr);
-#ifdef HAVE_CONDATTR_CLOCK_MONOTONIC
+#ifdef HAVE_CONDATTR_CLOCK_BOOTTIME
+				pthread_condattr_setclock(&condattr, CLOCK_BOOTTIME);
+#elif defined(HAVE_CONDATTR_CLOCK_MONOTONIC)
 				pthread_condattr_setclock(&condattr, CLOCK_MONOTONIC);
 #endif
 				pthread_cond_init(&this->condvar, &condattr);
