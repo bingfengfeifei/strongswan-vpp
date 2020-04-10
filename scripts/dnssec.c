@@ -123,16 +123,16 @@ int main(int argc, char *argv[])
 	printf("  security status of the response: ");
 	switch (response->get_security_state(response))
 	{
-		case DDNS_SECURE:
+		case SECURE:
 			printf("SECURE\n\n");
 			break;
-		case DDNS_INSECURE:
+		case INSECURE:
 			printf("INSECURE\n\n");
 			break;
-		case DDNS_BOGUS:
+		case BOGUS:
 			printf("BOGUS\n\n");
 			break;
-		case DDNS_INDETERMINATE:
+		case INDETERMINATE:
 			printf("INDETERMINATE\n\n");
 			break;
 	}

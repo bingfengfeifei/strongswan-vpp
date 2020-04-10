@@ -236,13 +236,6 @@ if MONOLITHIC
 endif
 endif
 
-if USE_SOCKET_VPP
-  SUBDIRS += plugins/socket_vpp
-if MONOLITHIC
-  libcharon_la_LIBADD += plugins/socket_vpp/libstrongswan-socket-vpp.la
-endif
-endif
-
 if USE_CONNMARK
   SUBDIRS += plugins/connmark
 if MONOLITHIC
@@ -604,13 +597,6 @@ if USE_KERNEL_IPH
   SUBDIRS += plugins/kernel_iph
 if MONOLITHIC
   libcharon_la_LIBADD += plugins/kernel_iph/libstrongswan-kernel-iph.la
-endif
-endif
-
-if USE_KERNEL_VPP
-  SUBDIRS += plugins/kernel_vpp
-if MONOLITHIC
-  libcharon_la_LIBADD += plugins/kernel_iph/libstrongswan-kernel-vpp.la
 endif
 endif
 
