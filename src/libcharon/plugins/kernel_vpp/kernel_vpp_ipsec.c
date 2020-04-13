@@ -206,7 +206,7 @@ static void manage_route(private_kernel_vpp_ipsec_t *this, bool add,
             );
             this->routes->insert_last(this->routes, route);
             charon->kernel->add_route(charon->kernel,
-                 dst_net->get_address(dst_net), prefixlen, dst, NULL, if_name);
+                 dst_net->get_address(dst_net), prefixlen, gateway, dst, if_name, FALSE);
         }
     }
     else
@@ -220,7 +220,7 @@ static void manage_route(private_kernel_vpp_ipsec_t *this, bool add,
         this->routes->remove(this->routes, route, NULL);
         route_destroy(route);
         charon->kernel->del_route(charon->kernel, dst_net->get_address(dst_net),
-             prefixlen, dst, NULL, if_name);
+             prefixlen, gateway, dst, if_name, FALSE);
     }
 }
 
@@ -470,7 +470,7 @@ static status_t manage_bypass(bool add, uint32_t spd_id)
     mp->entry.spd_id = ntohl(spd_id);
     mp->entry.priority = ntohl(INT_MAX - POLICY_PRIORITY_PASS);
     mp->entry.is_outbound = 0;
-    mp->entry.policy = ntohl(IPSEC_API_SPD_ACTION_BYPASS;)
+    mp->entry.policy = ntohl(IPSEC_API_SPD_ACTION_BYPASS);
     /* vpp 19.04.03 remove is_ip_any option need to add ip4 ip6 entry explicit */
     /* TODO add ip6 entry */
     //mp->is_ip_any = 1;
