@@ -183,6 +183,14 @@ static status_t manage_route(private_kernel_vpp_net_t *this, bool add,
     {
         chunk_t addr = gtw->get_address(gtw);
         memcpy(mp->next_hop_address, addr.ptr, addr.len);
+        if (mp->is_ipv6)
+        {
+            mp->next_hop_proto = 2;
+        }
+        else
+        {
+            mp->next_hop_proto = 1;
+        }
     }
     if (vac->send(vac, (char *)mp, sizeof(*mp), &out, &out_len))
     {
