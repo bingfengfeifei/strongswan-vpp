@@ -24,10 +24,33 @@
 #include <threading/thread.h>
 #include <kernel_vpp_shared.h>
 #include <ip_packet.h>
+
+#include <vppinfra/clib.h>
+#include <vppinfra/vec.h>
+#include <vppinfra/hash.h>
+#include <vppinfra/bitmap.h>
+#include <vppinfra/fifo.h>
+#include <vppinfra/time.h>
+#include <vppinfra/mheap.h>
+#include <vppinfra/heap.h>
+#include <vppinfra/pool.h>
+#include <vppinfra/format.h>
+#include <vppinfra/error.h>
+
+#include <vnet/vnet.h>
+#include <vlib/vlib.h>
+#include <vlib/unix/unix.h>
 #include <vlibapi/api.h>
 #include <vlibmemory/api.h>
+#include <svm/svm.h>
+#include <svm/svmdb.h>
+
 #include <vpp/api/vpe_msg_enum.h>
-#include <vnet/ip/ip6_packet.h>
+
+#include <vnet/ip/ip.h>
+
+#define f64_endian(a)
+#define f64_print(a,b)
 
 #define vl_typedefs
 #define vl_endianfun
@@ -35,11 +58,13 @@
 #undef vl_typedefs
 #undef vl_endianfun
 
-#define READ_PATH "/tmp/strongswan-uds-socket"
+#define READ_PATH "/var/run/vpp/ike-punt-read.sock"
 
 typedef struct private_socket_vpp_socket_t private_socket_vpp_socket_t;
 typedef struct vpp_packetdesc_t vpp_packetdesc_t;
 typedef struct ether_header_t ether_header_t;
+
+static void deregister_punt_port(private_socket_vpp_socket_t *this, uint16_t port);
 
 /**
  * Private data of an socket_t object
@@ -55,6 +80,11 @@ struct private_socket_vpp_socket_t {
      * Configured IKEv2 port
      */
     uint16_t port;
+
+    /**
+     * Configured port for NAT-T
+     */
+    uint16_t natt;
 
     /**
      * maximum packet size to receive
@@ -135,6 +165,7 @@ METHOD(socket_t, receiver, status_t,
     if (pfd[0].revents & POLLIN)
     {
         struct msghdr msg;
+        struct sockaddr_un read_addr;
         struct iovec iov[3];
         vpp_packetdesc_t packetdesc;
         ether_header_t eh;
@@ -149,8 +180,14 @@ METHOD(socket_t, receiver, status_t,
         iov[2].iov_len = this->max_packet;
         msg.msg_iov = iov;
         msg.msg_iovlen = 3;
-        msg.msg_name = &this->read_addr;
-        msg.msg_namelen = sizeof(this->read_addr);
+
+        memset(&read_addr, 0, sizeof(read_addr));
+        strncpy(read_addr.sun_path, this->read_addr.sun_path,
+                            sizeof(this->read_addr.sun_path));
+        read_addr.sun_family = AF_UNIX;
+        msg.msg_name = &read_addr;
+        msg.msg_namelen = sizeof(read_addr);
+
         msg.msg_control = 0;
         msg.msg_controllen = 0;
         msg.msg_flags = 0;
@@ -161,13 +198,14 @@ METHOD(socket_t, receiver, status_t,
             DBG1(DBG_NET, "error reading vpp socket: %s", strerror(errno));
             return FAILED;
         }
-        DBG3(DBG_NET, "received vpp packet %b", buf, bytes_read);
+        //DBG3(DBG_NET, "**received vpp packet %b", buf, bytes_read);
 
         raw = chunk_create(buf, bytes_read);
         packet = ip_packet_create(raw);
         if (!packet)
         {
             DBG1(DBG_NET, "invalid IP packet read from vpp socket");
+			return FAILED;
         }
         src = packet->get_source(packet);
         dst = packet->get_destination(packet);
@@ -182,6 +220,7 @@ METHOD(socket_t, receiver, status_t,
     }
     else
     {
+		DBG1(DBG_NET, "received : impossible here");
         return FAILED;
     }
 
@@ -209,7 +248,7 @@ METHOD(socket_t, sender, status_t,
         src->set_port(src, this->port);
     }
 
-    DBG2(DBG_NET, "sending vpp packet: from %#H to %#H", src, dst);
+    DBG1(DBG_NET, "sending vpp packet: from %#H to %#H by sock %d", src, dst, this->sock);
 
     family = dst->get_family(dst);
 
@@ -268,10 +307,139 @@ METHOD(socket_t, supported_families, socket_family_t,
 METHOD(socket_t, destroy, void,
     private_socket_vpp_socket_t *this)
 {
+	if (this->port) deregister_punt_port(this, this->port);
+	if (this->natt) deregister_punt_port(this, this->natt);
     close(this->sock);
     unlink(this->read_addr.sun_path);
     free(this);
 }
+
+static void deregister_punt_port(private_socket_vpp_socket_t *this, uint16_t port)
+{
+	char *out;
+    int out_len;
+    vl_api_punt_socket_deregister_t *mp;
+    vl_api_punt_socket_deregister_reply_t *rmp;
+
+    /* Register IPv4 punt socket for IKEv2 port in VPP */
+    mp = vl_msg_api_alloc(sizeof(*mp));
+    memset(mp, 0, sizeof(*mp));
+    mp->_vl_msg_id = ntohs(VL_API_PUNT_SOCKET_DEREGISTER);
+    mp->punt.ipv = IP46_TYPE_IP4;
+    mp->punt.l4_protocol = IPPROTO_UDP;
+    mp->punt.l4_port = ntohs(port);
+    DBG1(DBG_LIB, "send deregister vpp ip4 punt socket VL_API_PUNT_SOCKET_DEREGISTER %d on port %d", VL_API_PUNT_SOCKET_DEREGISTER, port);
+    if (this->vac->send(this->vac, (char*)mp, sizeof(*mp), &out, &out_len))
+    {
+        DBG1(DBG_LIB, "send deregister vpp ip4 punt socket fail on port %d", port);
+        goto ERR;
+    }
+
+    rmp = (void *)out;
+    if (rmp->retval)
+    {
+        DBG1(DBG_LIB, "deregister vpp ip4 punt socket fail on port %d with ret %d", port, ntohl(rmp->retval));
+        goto ERR;
+    }
+
+    /* Register IPv6 punt socket for IKEv2 port in VPP */
+    mp->punt.ipv = IP46_TYPE_IP4;
+    if (this->vac->send(this->vac, (char*)mp, sizeof(*mp), &out, &out_len))
+    {
+        DBG1(DBG_LIB, "send deregister vpp ip6 punt socket fail on port %d", port);
+        goto ERR;
+    }
+    rmp = (void *)out;
+    if (rmp->retval)
+    {
+        DBG1(DBG_LIB, "deregister vpp ip6 punt socket fail on port %d with ret %d", port, ntohl(rmp->retval));
+        goto ERR;
+    }
+
+	DBG2(DBG_LIB, "Deregistered vpp punt socket on port %d successfully", port);
+
+ERR:
+	vl_msg_api_free(mp);
+}
+
+static int register_punt_port(private_socket_vpp_socket_t *this, uint16_t port, char *read_path)
+{
+
+    char *out;
+    int out_len;
+    vl_api_punt_socket_register_t *mp;
+    vl_api_punt_socket_register_reply_t *rmp;
+    DBG1(DBG_LIB, "ENTER register_punt_port create");
+    /* Register IPv4 punt socket for IKEv2 port in VPP */
+    mp = vl_msg_api_alloc(sizeof(*mp));
+    memset(mp, 0, sizeof(*mp));
+    mp->_vl_msg_id = ntohs(VL_API_PUNT_SOCKET_REGISTER);
+    mp->header_version = ntohl(1);
+    mp->punt.ipv = IP46_TYPE_IP4;
+    mp->punt.l4_protocol = IPPROTO_UDP;
+    mp->punt.l4_port = ntohs(port);
+    strncpy(mp->pathname, read_path, 107);
+    DBG1(DBG_LIB, "send register vpp ip4 punt socket VL_API_PUNT_SOCKET_REGISTER %d on port %d", VL_API_PUNT_SOCKET_REGISTER, port);
+    if (this->vac->send(this->vac, (char*)mp, sizeof(*mp), &out, &out_len))
+    {
+        DBG1(DBG_LIB, "send register vpp ip4 punt socket fail on port %d", port);
+		vl_msg_api_free(mp);
+        return -1;
+    }
+
+    rmp = (void *)out;
+    if (rmp->retval)
+    {
+        DBG1(DBG_LIB, "register vpp ip4 punt socket fail on port %d with ret %d", port, ntohl(rmp->retval));
+		vl_msg_api_free(mp);
+        return -1;
+    }
+
+    /* Register IPv6 punt socket for IKEv2 port in VPP */
+    mp->punt.ipv = IP46_TYPE_IP6;
+    if (this->vac->send(this->vac, (char*)mp, sizeof(*mp), &out, &out_len))
+    {
+        DBG1(DBG_LIB, "send register vpp ip6 punt socket fail on port %d", port);
+		vl_msg_api_free(mp);
+        return -1;
+    }
+    rmp = (void *)out;
+    if (rmp->retval)
+    {
+        DBG1(DBG_LIB, "register vpp ip6 punt socket fail on port %d with ret %d", port, ntohl(rmp->retval));
+		vl_msg_api_free(mp);
+        return -1;
+    }
+
+	vl_msg_api_free(mp);
+
+	DBG2(DBG_LIB, "Registered vpp punt socket on port %d successfully with w:r path [%s:%s] %s", port, rmp->pathname, read_path);
+
+	if (this->sock < 0) {
+    	this->sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+    	if (this->sock < 0)
+    	{
+    	    DBG1(DBG_LIB, "opening vpp socket failed: %m");
+    	    return -1;
+    	}
+	}
+
+
+    /* There should be only one write path returned by VPP */
+    if (this->write_addr.sun_family == 0)
+    {
+        strncpy(this->write_addr.sun_path, rmp->pathname, sizeof(this->write_addr.sun_path));
+        this->write_addr.sun_family = AF_UNIX;
+    }
+    else if (strncmp(this->write_addr.sun_path, rmp->pathname, sizeof(this->write_addr.sun_path)) != 0)
+    {
+        DBG1(DBG_LIB, "More than one write path returned by VPP. Previous one is: %s, now is: %s", this->write_addr.sun_path, rmp->pathname);
+        return -1;
+    }
+
+    return 0;
+}
+
 
 /*
  * See header for description
@@ -279,11 +447,8 @@ METHOD(socket_t, destroy, void,
 socket_vpp_socket_t *socket_vpp_socket_create()
 {
     private_socket_vpp_socket_t *this;
-    char *read_path, *out;
-    int out_len;
-    vl_api_punt_socket_register_t *mp;
-    vl_api_punt_socket_register_reply_t *rmp;
-
+    char *read_path;
+    DBG1(DBG_LIB, "ENTER vpp socket create");
     INIT(this,
         .public = {
             .socket = {
@@ -294,67 +459,52 @@ socket_vpp_socket_t *socket_vpp_socket_create()
                 .destroy = _destroy,
             },
         },
+        .sock = -1,
         .max_packet = lib->settings->get_int(lib->settings,
                             "%s.max_packet", PACKET_MAX_DEFAULT, lib->ns),
         .port = lib->settings->get_int(lib->settings, "%s.port",
-                            CHARON_UDP_PORT, lib->ns),
+                            IKEV2_UDP_PORT, lib->ns),
+        .natt = lib->settings->get_int(lib->settings, "%s.port_nat_t",
+                            IKEV2_NATT_PORT, lib->ns),
     );
-
-    read_path = lib->settings->get_str(lib->settings,
-                        "%s.plugins.socket-vpp.path", READ_PATH, lib->ns);
 
     this->vac = lib->get(lib, "kernel-vpp-vac");
     if (!this->vac)
     {
         DBG1(DBG_LIB, "no vac available (plugin missing?)");
     }
-    /* Register IPv4 punt socket for IKEv2 port in VPP */
-    mp = vl_msg_api_alloc(sizeof(*mp));
-    memset(mp, 0, sizeof(*mp));
-    /* For vpp version 19.04.3  */
-    mp->_vl_msg_id = ntohs(VL_API_PUNT_SOCKET_REGISTER);
-    mp->header_version = ntohl(1);
-    mp->punt.ipv = IP46_TYPE_IP4;
-    mp->punt.l4_protocol = IPPROTO_UDP;
-    mp->punt.l4_port = ntohs(this->port);
-    strncpy(mp->pathname, read_path, 107);
-    if (this->vac->send(this->vac, (char*)mp, sizeof(*mp), &out, &out_len))
-    {
-        DBG1(DBG_LIB, "send register vpp ip4 punt socket faield");
-        return NULL;
-    }
-    rmp = (void *)out;
-    if (rmp->retval)
-    {
-        DBG1(DBG_LIB, "register vpp ip4 punt socket faield %d", ntohl(rmp->retval));
-        return NULL;
-    }
-    /* Register IPv6 punt socket for IKEv2 port in VPP */
-    mp->punt.ipv = IP46_TYPE_IP6;
-    if (this->vac->send(this->vac, (char*)mp, sizeof(*mp), &out, &out_len))
-    {
-        DBG1(DBG_LIB, "send register vpp ip6 punt socket faield");
-        return NULL;
-    }
-    rmp = (void *)out;
-    if (rmp->retval)
-    {
-        DBG1(DBG_LIB, "register vpp ip6 punt socket faield %d", ntohl(rmp->retval));
-        return NULL;
-    }
-    DBG3(DBG_LIB, "vpp punt socket %s", rmp->pathname);
 
-    this->sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-    if (this->sock < 0)
-    {
-        DBG1(DBG_LIB, "opening vpp socket failed: %m");
-        return NULL;
-    }
-
+    read_path = lib->settings->get_str(lib->settings,
+                            "%s.plugins.socket-vpp.path", READ_PATH, lib->ns);
     memset(&this->write_addr, 0, sizeof(this->write_addr));
-    strncpy(this->write_addr.sun_path, rmp->pathname, sizeof(this->write_addr.sun_path));
-    this->write_addr.sun_family = AF_UNIX;
 
+    if (this->port)
+        deregister_punt_port(this, this->port);
+
+    if (this->port && (register_punt_port(this, this->port, read_path) != 0))
+    {
+    	DBG1(DBG_LIB, "Register punt port %d fail", this->port);
+    	return NULL;
+    }
+
+    if (this->natt)
+    {
+    	if (this->natt == this->port)
+    	{
+    		DBG1(DBG_LIB, "IKE NAT Port (%d) cannot be the same as IKE Port (%d)", this->natt, this->port);
+    		return NULL;
+    	}
+
+		deregister_punt_port(this, this->natt);
+
+    	if (register_punt_port(this, this->natt, read_path) != 0)
+    	{
+    		DBG1(DBG_LIB, "Register punt port %d fail", this->port);
+    		return NULL;
+    	}
+    }
+
+    /* Bind read path */
     memset(&this->read_addr, 0, sizeof(this->read_addr));
     strncpy(this->read_addr.sun_path, read_path, sizeof(this->read_addr.sun_path));
     this->read_addr.sun_family = AF_UNIX;
@@ -367,3 +517,5 @@ socket_vpp_socket_t *socket_vpp_socket_create()
     }
     return &this->public;
 }
+
+
