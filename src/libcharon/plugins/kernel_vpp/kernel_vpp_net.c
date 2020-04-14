@@ -183,6 +183,7 @@ static status_t manage_route(private_kernel_vpp_net_t *this, bool add,
     {
         chunk_t addr = gtw->get_address(gtw);
         memcpy(mp->next_hop_address, addr.ptr, addr.len);
+         
         if (mp->is_ipv6)
         {
             mp->next_hop_proto = 2;
@@ -284,6 +285,7 @@ static host_t *get_route(private_kernel_vpp_net_t *this, host_t *dest,
         tmp = out;
         while (tmp < (out + out_len))
         {
+            #define IS_IP4_ANY(a) (a[0]==0&&a[1]==0&&a[2]==0&a[3]==0)
             rmp = (void *)tmp;
             num = ntohl(rmp->count);
             if (addr_in_subnet(dest->get_address(dest), prefix, chunk_create(rmp->address, 4), rmp->address_length))
@@ -296,7 +298,7 @@ static host_t *get_route(private_kernel_vpp_net_t *this, host_t *dest,
                         fp++;
                         continue;
                     }
-                    if ((fp->preference < path.preference) || (path.sw_if_index == ~0))
+                    if ((fp->preference < path.preference) || (path.sw_if_index == ~0) || IS_IP4_ANY(path.next_hop.ptr))
                     {
                         path.sw_if_index = ntohl(fp->sw_if_index);
                         path.preference = fp->preference;

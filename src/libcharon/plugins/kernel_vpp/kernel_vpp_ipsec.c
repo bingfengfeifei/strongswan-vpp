@@ -208,7 +208,7 @@ static void manage_route(private_kernel_vpp_ipsec_t *this, bool add,
         }
         else
         {
-            DBG2(DBG_KNL, "installing route: %H/%d via %H dev %s",
+            DBG1(DBG_KNL, "installing route: %H/%d via %H dev %s",
                  dst_net, prefixlen, gateway, if_name);
             INIT(route,
                 .if_name = strdup(if_name),
@@ -716,13 +716,11 @@ static status_t manage_policy(private_kernel_vpp_ipsec_t *this, bool add,
     if (id->src_ts->get_type(id->src_ts) == TS_IPV6_ADDR_RANGE)
     {
         is_ipv6 = true;
-        DBG1(DBG_KNL, "manage_bypass ipv6 addr");
         mp->entry.local_address_start.af    = htonl(ADDRESS_IP6);
         mp->entry.local_address_stop.af     = htonl(ADDRESS_IP6);
         mp->entry.remote_address_start.af   = htonl(ADDRESS_IP6);
         mp->entry.remote_address_stop.af    = htonl(ADDRESS_IP6);
     } else {
-        DBG1(DBG_KNL, "manage_bypass ipv4 addr");
         mp->entry.local_address_start.af    = htonl(ADDRESS_IP4);
         mp->entry.local_address_stop.af     = htonl(ADDRESS_IP4);
         mp->entry.remote_address_start.af   = htonl(ADDRESS_IP4);
@@ -754,11 +752,9 @@ static status_t manage_policy(private_kernel_vpp_ipsec_t *this, bool add,
     {
         /* TODO vpp 19.04.3 remove is_ip_any need to add ipv4 and ipv6 entry explicit */
 
-        DBG1(DBG_KNL, "manage_bypass any addr");
         memset(mp->entry.local_address_stop.un.ip6, 0xFF, 16);
         memset(mp->entry.remote_address_stop.un.ip6, 0xFF, 16);
     } else {
-        DBG1(DBG_KNL, "manage_bypass not any addr");
         memcpy(is_ipv6?mp->entry.local_address_start.un.ip6:mp->entry.local_address_start.un.ip4, src_from.ptr, src_from.len);
         memcpy(is_ipv6?mp->entry.local_address_stop.un.ip6:mp->entry.local_address_stop.un.ip4, src_to.ptr, src_to.len);
         memcpy(is_ipv6?mp->entry.remote_address_start.un.ip6:mp->entry.remote_address_start.un.ip4, dst_from.ptr, dst_from.len);
